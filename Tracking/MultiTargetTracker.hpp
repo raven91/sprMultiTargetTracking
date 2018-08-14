@@ -6,11 +6,14 @@
 #define SPRMULTITARGETTRACKING_MULTITARGETTRACKER_HPP
 
 #include "../Definitions.hpp"
+#include "boost/filesystem.hpp"
+#include "boost/regex.hpp"
 
 #include <vector>
 #include <map>
 
 #include <eigen3/Eigen/Dense>
+
 
 class MultitargetTracker
 {
@@ -20,6 +23,10 @@ public:
     ~MultitargetTracker();
 
     void StartOnExperimentalData();
+	void PerformImageProcessingForOneExperiment(const std::string & file_name);
+	void PerformImageProcessingForMultipleExperiments();
+	void StartOnExperimentalDataWithoutFiltering();
+	void StartOnReceivedDataWithoutImageProcessing();
     void StartOnSyntheticData(Real phi, Real a, Real U0, Real kappa, Real percentage_of_misdetections);
     void StartOnSyntheticDataForDifferentParameters();
 

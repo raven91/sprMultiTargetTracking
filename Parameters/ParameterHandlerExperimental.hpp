@@ -11,7 +11,7 @@ class ParameterHandlerExperimental
 {
 public:
 
-    ParameterHandlerExperimental();
+    ParameterHandlerExperimental(const std::string& file_name);
     ~ParameterHandlerExperimental();
 
     const std::string& GetInputFolder();

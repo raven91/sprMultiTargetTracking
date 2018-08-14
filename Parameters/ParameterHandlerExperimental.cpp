@@ -7,9 +7,11 @@
 #include <fstream>
 #include <map>
 
-ParameterHandlerExperimental::ParameterHandlerExperimental()
+ParameterHandlerExperimental::ParameterHandlerExperimental(const std::string& file_name)
+
 {
-  std::ifstream parameters_file("/Users/nikita/CLionProjects/sprMultiTargetTracking/Parameters/ConfigExperimental.cfg", std::ios::in);
+	
+  std::ifstream parameters_file(file_name, std::ios::in);
   assert(parameters_file.is_open());
 
   // read string values

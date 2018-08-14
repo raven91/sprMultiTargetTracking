@@ -5,6 +5,8 @@
 #ifndef SPRMULTITARGETTRACKING_DEFINITIONS_HPP
 #define SPRMULTITARGETTRACKING_DEFINITIONS_HPP
 
+#define _USE_MATH_DEFINES
+
 #include <cstdlib>  // size_t
 #include <iostream>
 #include <string>

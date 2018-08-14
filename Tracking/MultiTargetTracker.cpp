@@ -22,21 +22,131 @@ MultitargetTracker::~MultitargetTracker()
   std::cout << "multi-target tracking ended" << std::endl;
 }
 
-void MultitargetTracker::StartOnExperimentalData()
+//void MultitargetTracker::StartOnExperimentalData()
+//
+//{
+//  ParameterHandlerExperimental parameter_handler;
+//  ImageProcessingEngine image_processing_engine(parameter_handler);
+//  KalmanFilterExperimental kalman_filter(parameter_handler, image_processing_engine);
+//
+//  image_processing_engine.RetrieveBacterialData(parameter_handler.GetFirstImage(), detections_);
+//  kalman_filter.InitializeTargets(targets_, detections_);
+//
+//  for (int i = parameter_handler.GetFirstImage() + 1; i <= parameter_handler.GetLastImage(); ++i)
+//  {
+//    image_processing_engine.RetrieveBacterialData(i, detections_);
+//    kalman_filter.PerformEstimation(i, targets_, detections_);
+//  }
+//}
+
+
+//
+// Created by Stanislav Stepaniuk on 10.08.18 MODIFIED on  13.08.18
+//
+// Image processing without Kalman filtering
+void MultitargetTracker::PerformImageProcessingForOneExperiment( const std::string& file_name )
+
 {
-  ParameterHandlerExperimental parameter_handler;
-  ImageProcessingEngine image_processing_engine(parameter_handler);
-  KalmanFilterExperimental kalman_filter(parameter_handler, image_processing_engine);
+	ParameterHandlerExperimental parameter_handler( file_name ) ;
+	ImageProcessingEngine image_processing_engine(parameter_handler);
 
-  image_processing_engine.RetrieveBacterialData(parameter_handler.GetFirstImage(), detections_);
-  kalman_filter.InitializeTargets(targets_, detections_);
+	image_processing_engine.RetrieveBacterialData(parameter_handler.GetFirstImage(), detections_);
 
-  for (int i = parameter_handler.GetFirstImage() + 1; i <= parameter_handler.GetLastImage(); ++i)
-  {
-    image_processing_engine.RetrieveBacterialData(i, detections_);
-    kalman_filter.PerformEstimation(i, targets_, detections_);
-  }
-}
+	for (int i = parameter_handler.GetFirstImage() + 1; i <= parameter_handler.GetLastImage(); ++i)
+	{
+		image_processing_engine.RetrieveBacterialData(i, detections_);
+	}
+}//END of Image processing without Kalman filtering
+
+
+ //
+ // Created by Stanislav Stepaniuk on 13.08.18
+ //
+ // Searching for a Configuration file name and call of PerformImageProcessingForOneExperiment
+void MultitargetTracker::PerformImageProcessingForMultipleExperiments()
+
+{
+	//path here to directory with folders with experiments (example: 20170705)
+	boost::filesystem::path current_dir("//tsclient/D/Documents/Internship/02.08-_MultiTargetTracking/");
+	boost::filesystem::path origin_dir = current_dir;
+	// list all files starting with 20
+	boost::regex pattern("20.*");
+	for (boost::filesystem::directory_iterator iter(current_dir), end;
+		iter != end;
+		++iter)
+	{
+		boost::smatch match;
+		std::string fn = iter->path().filename().string();
+		if (boost::regex_match(fn, match, pattern))
+		{
+			std::cout << match[0] << "\n";
+			current_dir += (fn + "/");
+			boost::regex pattern("100.*");
+			for (boost::filesystem::directory_iterator iter(current_dir), end;
+				iter != end;
+				++iter)
+			{
+				boost::smatch match;
+				std::string fn = iter->path().filename().string();
+				if (boost::regex_match(fn, match, pattern))
+				{
+					//std::cout << match[0] << "\n";
+					boost::filesystem::path current_dir_copy = current_dir;
+					current_dir += (fn + "/");
+					//boost::regex pattern("DataAnalysis.*");
+					boost::regex pattern("Config.*");
+					for (boost::filesystem::directory_iterator iter(current_dir), end;
+						iter != end;
+						++iter)
+
+					{
+						boost::smatch match;
+						std::string fn = iter->path().filename().string();
+						//if ((boost::regex_match(fn, match, pattern_1)) or (boost::regex_match(fn, match, pattern_2)))
+						if ((boost::regex_match(fn, match, pattern)))
+						{
+							current_dir += fn;
+							//std::cout << current_dir << "\n";
+							PerformImageProcessingForOneExperiment(current_dir.string());						
+						}
+
+					}
+
+
+					//std::cout << "\n";
+					current_dir = current_dir_copy;
+				}
+			}
+			current_dir = origin_dir;
+		}
+	}
+}//END of Searching for a Configuration file name and call of PerformImageProcessingForOneExperiment
+
+
+
+ //
+ // Created by Stanislav Stepaniuk on 10.08.18
+ //
+ // Kalman filtering without Image processing 
+void MultitargetTracker::StartOnReceivedDataWithoutImageProcessing()
+{
+	ParameterHandlerSynthetic parameter_handler; 
+	std::ostringstream solution_file_name;
+	solution_file_name	<< parameter_handler.GetTrackingFolder()
+						<< "image_processing_output.txt";
+	std::ifstream modified_solution_file(solution_file_name.str(), std::ios::in);
+	assert(modified_solution_file.is_open());
+	
+	//KalmanFilterExperimental kalman_filter(parameter_handler, image_processing_engine);
+	//kalman_filter.InitializeTargets(targets_, detections_);
+
+	//for (int i = parameter_handler.GetFirstImage() + 1; i <= parameter_handler.GetLastImage(); ++i)
+	//{
+	//	kalman_filter.PerformEstimation(i, targets_, detections_);
+	//}
+}//END of Kalman filtering without Image processing 
+
+
 
 void MultitargetTracker::StartOnSyntheticData(Real phi, Real a, Real U0, Real kappa, Real percentage_of_misdetections)
 {
