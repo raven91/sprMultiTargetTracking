@@ -12,33 +12,33 @@
 
 class TrackingStatistics
 {
- public:
+public:
 
-  TrackingStatistics();
-  ~TrackingStatistics();
+	TrackingStatistics();
+	~TrackingStatistics();
 
-  int GetNumberOfSuspendedTargets();
-  int GetNumberOfMissedTargets();
-  int GetNumberOfDeletedTargets();
-  int GetNumberOfNewTargets();
-  int GetNumberOfRecapturedTargets();
-  int GetNumberOfTimePoints();
+	int GetNumberOfSuspendedTargets();
+	int GetNumberOfMissedTargets();
+	int GetNumberOfDeletedTargets();
+	int GetNumberOfNewTargets();
+	int GetNumberOfRecapturedTargets();
+	int GetNumberOfTimePoints();
 
-  void IncrementNumberOfSuspendedTargets(int increment);
-  void IncrementNumberOfMissedTargets(int increment);
-  void IncrementNumberOfDeletedTargets(int increment);
-  void IncrementNumberOfNewTargets(int increment);
-  void IncrementNumberOfRecapturedTargets(int increment);
-  void IncrementNumberOfTimePoints(int increment);
+	void IncrementNumberOfSuspendedTargets(int increment);
+	void IncrementNumberOfMissedTargets(int increment);
+	void IncrementNumberOfDeletedTargets(int increment);
+	void IncrementNumberOfNewTargets(int increment);
+	void IncrementNumberOfRecapturedTargets(int increment);
+	void IncrementNumberOfTimePoints(int increment);
 
- private:
+private:
 
-  int number_of_suspended_targets_;
-  int number_of_missed_targets_;
-  int number_of_deleted_targets_;
-  int number_of_new_targets_;
-  int number_of_recaptured_targets_;
-  int number_of_time_points_;
+	int number_of_suspended_targets_;
+	int number_of_missed_targets_;
+	int number_of_deleted_targets_;
+	int number_of_new_targets_;
+	int number_of_recaptured_targets_;
+	int number_of_time_points_;
 
 };
 

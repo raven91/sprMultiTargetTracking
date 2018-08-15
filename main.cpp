@@ -2,15 +2,21 @@
 
 int main(int argc, const char *argv[])
 {
-//  const Real phi = 0.1, a = 4.0, U0 = 250.0, kappa = 0.0, percentage_of_misdetections = 0.1;
-  MultitargetTracker multitarget_tracker;
-  //multitarget_tracker.StartOnExperimentalData();
-  multitarget_tracker.PerformImageProcessingForMultipleExperiments();
+	//  const Real phi = 0.1, a = 4.0, U0 = 250.0, kappa = 0.0, percentage_of_misdetections = 0.1;
+	MultitargetTracker multitarget_tracker;
+	//multitarget_tracker.StartOnExperimentalData(); 
 
-//  multitarget_tracker.StartOnSyntheticData(phi, a, U0, kappa, percentage_of_misdetections);
-//  multitarget_tracker.StartOnSyntheticDataForDifferentParameters();
+	// FOR IMAGE PROCESSING
+	//multitarget_tracker.StartImageProcessingORTrackingAndFilteringForMultipleExperiments('1'); 
 
-  return 0;
+	// FOR TRACKING & KALMAN FILTERING
+	multitarget_tracker.StartImageProcessingORTrackingAndFilteringForMultipleExperiments('2');
+
+
+	//  multitarget_tracker.StartOnSyntheticData(phi, a, U0, kappa, percentage_of_misdetections);
+	//  multitarget_tracker.StartOnSyntheticDataForDifferentParameters();
+
+	return 0;
 }
 
 //void TestHungarianAlgorithm()
