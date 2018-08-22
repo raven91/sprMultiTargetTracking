@@ -23,9 +23,14 @@ public:
 		ImageProcessingEngine &image_processing_engine);
 	~KalmanFilterExperimental();
 
+	void CreateNewKalmanFilterOutputFiles(ParameterHandlerExperimental & parameter_handler);
 	void InitializeTargets(std::map<int, Eigen::VectorXf> &targets, const std::vector<Eigen::VectorXf> &detections);
 	void InitializeTargets(std::map<int, Eigen::VectorXf>& targets, std::ifstream & file);
 	void ObtainNewDetections(std::vector<Eigen::VectorXf>& detections, std::ifstream & file);
+	void InitializeTrajectories(std::map<int, std::vector<Eigen::VectorXf>>& trajectories, std::map<int, std::vector<int>>& timeStamps, std::ifstream & file);
+	void PerformTrackLinking(std::map<int, std::vector<Eigen::VectorXf>>& trajectories, std::map<int, std::vector<int>>& timeStamps);
+	CostInt InitializeCostMatrixTrackLinking(std::map<int, std::vector<Eigen::VectorXf>>& trajectories, std::map<int, std::vector<int>>& timestamps, double & max_elem, std::vector<std::vector<CostInt>>& cost_matrix, std::vector<int>& target_indexes);
+	void PerformDataAssociationTrackLinking(std::map<int, std::vector<Eigen::VectorXf>>& trajectories, std::map<int, std::vector<int>>& timestamps, double & max_elem, std::vector<int>& target_indexes, std::vector<std::vector<CostInt>>& cost_matrix, std::vector<int>& assignments, std::vector<CostInt>& costs);
 	void PerformEstimation(int image_idx,
 		std::map<int, Eigen::VectorXf> &targets,
 		const std::vector<Eigen::VectorXf> &detections);

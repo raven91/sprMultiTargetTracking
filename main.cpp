@@ -10,9 +10,14 @@ int main(int argc, const char *argv[])
 	//multitarget_tracker.StartImageProcessingORTrackingAndFilteringForMultipleExperiments('1'); 
 
 	// FOR TRACKING & KALMAN FILTERING
-	multitarget_tracker.StartImageProcessingORTrackingAndFilteringForMultipleExperiments('2');
+	//multitarget_tracker.StartImageProcessingORTrackingAndFilteringForMultipleExperiments('2');
+
+	// FOR TRACK LINKING
+	multitarget_tracker.StartImageProcessingORTrackingAndFilteringForMultipleExperiments('3');
 
 
+	//system("pause")
+	;
 	//  multitarget_tracker.StartOnSyntheticData(phi, a, U0, kappa, percentage_of_misdetections);
 	//  multitarget_tracker.StartOnSyntheticDataForDifferentParameters();
 

@@ -44,7 +44,7 @@ void MultitargetTracker::StartOnExperimentalData()
 }
 
 //
-// Created by Stanislav Stepaniuk on 10.08.18 MODIFIED on  13.08.18
+// Created by Stanislav Stepaniuk on 10.08.18 MODIFIED on 13.08.18
 //
 // Image processing without Kalman filtering
 void MultitargetTracker::PerformImageProcessingForOneExperiment(const std::string& configuration_file_name)
@@ -61,28 +61,54 @@ void MultitargetTracker::PerformImageProcessingForOneExperiment(const std::strin
 }//END of Image processing without Kalman filtering
 
  //
- // Created by Stanislav Stepaniuk on 10.08.18
+ // Created by Stanislav Stepaniuk on 10.08.18 MODIFIED on 16.08.18
  //
  // Kalman filtering without Image processing 
 void MultitargetTracker::StartTrackingAndFilteringWithoutImageProcessingForOneExperiment(const std::string& configuration_file_name)
 {
 	ParameterHandlerExperimental parameter_handler(configuration_file_name);
+	std::ostringstream image_processing_data_input_file_name;
+	image_processing_data_input_file_name
+		<< parameter_handler.GetInputFolder()
+		<< parameter_handler.GetDataAnalysisSubfolder()
+		<< parameter_handler.GetImageProcessingOutputFileName();
+	std::ifstream modified_image_processing_data_input_file(image_processing_data_input_file_name.str(), std::ios::in);
+	assert(modified_image_processing_data_input_file.is_open());
+
+	ImageProcessingEngine image_processing_engine(parameter_handler);
+
+	KalmanFilterExperimental kalman_filter(parameter_handler, image_processing_engine);
+	kalman_filter.CreateNewKalmanFilterOutputFiles(parameter_handler);
+	kalman_filter.InitializeTargets(targets_, modified_image_processing_data_input_file);
+
+	for (int i = parameter_handler.GetFirstImage() + 1; i <= parameter_handler.GetLastImage(); ++i)
+	{
+		kalman_filter.ObtainNewDetections(detections_, modified_image_processing_data_input_file);
+		kalman_filter.PerformEstimation(i, targets_, detections_);
+	}
+}//END of Kalman filtering without Image processing 
+
+ //
+ // Created by Stanislav Stepaniuk on 16.08.18
+ //
+ // Linking separate tracks of the same object via temporal assignment
+void MultitargetTracker::StartTrackLinkingViaTemporalAssignment(const std::string& configuration_file_name)
+{
+	ParameterHandlerExperimental parameter_handler(configuration_file_name);
 	std::ostringstream solution_file_name;
-	solution_file_name << parameter_handler.GetInputFolder() << parameter_handler.GetDataAnalysisSubfolder() << parameter_handler.GetImageProcessingOutputFileName();
+	solution_file_name << parameter_handler.GetInputFolder()
+		<< parameter_handler.GetDataAnalysisSubfolder()
+		<< parameter_handler.GetKalmanFilterOutputFileName();
 	std::ifstream modified_solution_file(solution_file_name.str(), std::ios::in);
 	assert(modified_solution_file.is_open());
 
 	ImageProcessingEngine image_processing_engine(parameter_handler);
 
 	KalmanFilterExperimental kalman_filter(parameter_handler, image_processing_engine);
-	kalman_filter.InitializeTargets(targets_, modified_solution_file);
+	kalman_filter.InitializeTrajectories(trajectories_, timestamps_, modified_solution_file);
+	kalman_filter.PerformTrackLinking(trajectories_, timestamps_);
 
-	for (int i = parameter_handler.GetFirstImage() + 1; i <= parameter_handler.GetLastImage(); ++i)
-	{
-		kalman_filter.ObtainNewDetections(detections_, modified_solution_file);
-		kalman_filter.PerformEstimation(i, targets_, detections_);
-	}
-}//END of Kalman filtering without Image processing 
+}//END of Linking separate tracks of the same object via temporal assignment
 
  //
  // Created by Stanislav Stepaniuk on 10.08.18 MODIFIED on  14.08.18
@@ -134,9 +160,13 @@ void MultitargetTracker::StartImageProcessingORTrackingAndFilteringForMultipleEx
 							case '2':
 								StartTrackingAndFilteringWithoutImageProcessingForOneExperiment(current_dir.string());
 								break;
-							}
+							case '3':
+								StartTrackLinkingViaTemporalAssignment(current_dir.string());
+								break;
 
+							}
 						}
+
 
 					}
 
