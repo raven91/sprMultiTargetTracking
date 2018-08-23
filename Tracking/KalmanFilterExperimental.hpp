@@ -29,8 +29,6 @@ public:
 	void ObtainNewDetections(std::vector<Eigen::VectorXf>& detections, std::ifstream & file);
 	void InitializeTrajectories(std::map<int, std::vector<Eigen::VectorXf>>& trajectories, std::map<int, std::vector<int>>& timeStamps, std::ifstream & file);
 	void PerformTrackLinking(std::map<int, std::vector<Eigen::VectorXf>>& trajectories, std::map<int, std::vector<int>>& timeStamps);
-	CostInt InitializeCostMatrixTrackLinking(std::map<int, std::vector<Eigen::VectorXf>>& trajectories, std::map<int, std::vector<int>>& timestamps, double & max_elem, std::vector<std::vector<CostInt>>& cost_matrix, std::vector<int>& target_indexes);
-	void PerformDataAssociationTrackLinking(std::map<int, std::vector<Eigen::VectorXf>>& trajectories, std::map<int, std::vector<int>>& timestamps, double & max_elem, std::vector<int>& target_indexes, std::vector<std::vector<CostInt>>& cost_matrix, std::vector<int>& assignments, std::vector<CostInt>& costs);
 	void PerformEstimation(int image_idx,
 		std::map<int, Eigen::VectorXf> &targets,
 		const std::vector<Eigen::VectorXf> &detections);
@@ -89,6 +87,22 @@ private:
 	void SaveTargets(std::ofstream &file, int image_idx, const std::map<int, Eigen::VectorXf> &targets);
 	void SaveTargetsMatlab(std::ofstream &file, int image_idx, const std::map<int, Eigen::VectorXf> &targets);
 	void SaveImages(int image_idx, const std::map<int, Eigen::VectorXf> &targets);
+
+	void PerformDataAssociationTrackLinking(std::map<int, std::vector<Eigen::VectorXf>>& trajectories,
+		std::map<int, std::vector<int>>& timestamps,
+		double & max_elem,
+		std::vector<int>& target_indexes,
+		std::vector<std::vector<CostInt>>& cost_matrix,
+		std::vector<int>& assignments,
+		std::vector<CostInt>& costs);
+
+
+	CostInt InitializeCostMatrixTrackLinking(std::map<int, std::vector<Eigen::VectorXf>>& trajectories,
+		std::map<int, std::vector<int>>& timestamps,
+		double & max_elem,
+		std::vector<std::vector<CostInt>>& cost_matrix,
+		std::vector<int>& target_indexes);
+
 
 	CostInt InitializeCostMatrix(const std::map<int, Eigen::VectorXf> &targets,
 		const std::vector<Eigen::VectorXf> &detections,

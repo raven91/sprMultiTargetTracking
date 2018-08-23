@@ -22,14 +22,10 @@ public:
 	MultitargetTracker();
 	~MultitargetTracker();
 
-	//void StartOnExperimentalData();
-	//void StartTrackingAndFilteringWithoutImageProcessing();
-	//void StartTrackingAndFilteringWithoutImageProcessing(const std::string & file_name);
 	void StartOnExperimentalData();
 	void PerformImageProcessingForOneExperiment(const std::string & file_name);
-	void PerformImageProcessingForMultipleExperiments();
 	void StartTrackingAndFilteringWithoutImageProcessingForOneExperiment(const std::string & file_name);
-	//void StartTrackingAndFilteringWithoutImageProcessingForMultipleExperiments(const char & dependance);
+	void StartTrackLinkingViaTemporalAssignment(const std::string & configuration_file_name);
 	void StartImageProcessingORTrackingAndFilteringForMultipleExperiments(const char & dependance);
 	void StartOnSyntheticData(Real phi, Real a, Real U0, Real kappa, Real percentage_of_misdetections);
 	void StartOnSyntheticDataForDifferentParameters();
@@ -38,6 +34,8 @@ private:
 
 	std::map<int, Eigen::VectorXf> targets_;    // i -> x_i y_i v_x_i v_y_i area_i slope_i width_i height_i
 	std::vector<Eigen::VectorXf> detections_;   // observations
+	std::map<int, std::vector<Eigen::VectorXf>> trajectories_;   // vector of vectors of i -> x_i y_i v_x_i v_y_i area_i slope_i width_i height_i
+	std::map<int, std::vector<int>> timestamps_;   // vector of timestamps for bacteries
 
 };
 

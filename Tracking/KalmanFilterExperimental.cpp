@@ -235,7 +235,7 @@ void KalmanFilterExperimental::PerformTrackLinking(std::map<int, std::vector<Eig
 				{
 					cost_matrix[iter_trj_outer->first][iter_trj_inner->first] = -1;
 				}
-				else if ((Tj_b - Ti_e >= 1) &&
+				if ((Tj_b - Ti_e >= 1) &&
 					(Tj_b - Ti_e <= gamma))
 				{
 					int s = Tj_b - Ti_e;
@@ -309,13 +309,14 @@ void KalmanFilterExperimental::PerformTrackLinking(std::map<int, std::vector<Eig
 						res += sqrt(pow((outer_vect[i][0] - inner_vect[i][0]), 2) +
 							pow((outer_vect[i][1] - inner_vect[i][1]), 2));
 					}
-					cost_matrix[first_trj_idx][second_trj_idx] = CostInt(res / (Ti_e - Tj_b + 1) * costs_order_of_magnitude_);
+					cost_matrix[first_trj_idx][second_trj_idx] = CostInt(res / (s + 1) * costs_order_of_magnitude_);
+
 					if (max_elem < cost_matrix[first_trj_idx][second_trj_idx])
 					{
 						max_elem = cost_matrix[first_trj_idx][second_trj_idx];
 					}
 				}
-				else if ((Ti_e - Tj_b >= 0) &&
+				if ((Ti_e - Tj_b >= 0) &&
 					(Ti_e - Tj_b <= tau))
 				{
 
@@ -325,17 +326,17 @@ void KalmanFilterExperimental::PerformTrackLinking(std::map<int, std::vector<Eig
 
 					for (int t = 0; t < s; ++t)
 					{
-						res += sqrt(pow((iter_trj_outer->second[iter_trj_outer->second.size() - s + counter](0) - iter_trj_inner->second[counter](0)), 2) +
-							pow((iter_trj_outer->second[iter_trj_outer->second.size() - s + counter](1) - iter_trj_inner->second[counter](1)), 2));
+						res += std::sqrt(std::pow((iter_trj_outer->second[iter_trj_outer->second.size() - s + counter](0) - iter_trj_inner->second[counter](0)), 2) +
+							std::pow((iter_trj_outer->second[iter_trj_outer->second.size() - s + counter](1) - iter_trj_inner->second[counter](1)), 2));
 						counter++;
 					}
-					cost_matrix[first_trj_idx][second_trj_idx] = CostInt(res / (Ti_e - Tj_b + 1) * costs_order_of_magnitude_);
+					cost_matrix[first_trj_idx][second_trj_idx] = CostInt(res / (s + 1) * costs_order_of_magnitude_);
+
 					if (max_elem < cost_matrix[first_trj_idx][second_trj_idx])
 					{
 						max_elem = cost_matrix[first_trj_idx][second_trj_idx];
 					}
 				}
-
 				else
 				{
 					cost_matrix[iter_trj_outer->first][iter_trj_inner->first] = -1;
@@ -370,7 +371,6 @@ CostInt KalmanFilterExperimental::InitializeCostMatrixTrackLinking(
 {
 	target_indexes.clear();
 
-	//std::vector<int> target_indexes;
 	std::map<int, std::vector<Eigen::VectorXf>>::iterator iter_trj_outer = trajectories.begin();
 
 	for (iter_trj_outer; iter_trj_outer != trajectories.end(); ++iter_trj_outer)
@@ -382,13 +382,11 @@ CostInt KalmanFilterExperimental::InitializeCostMatrixTrackLinking(
 			int first_trj_idx = iter_trj_outer->first;
 			int second_trj_idx = iter_trj_inner->first;
 
-			int Ti_e = timestamps[first_trj_idx][timestamps[first_trj_idx].size() - 1];
-			int Tj_b = timestamps[second_trj_idx][0];
-
 			if (cost_matrix[first_trj_idx][second_trj_idx] < 0)
 			{
-				cost_matrix[first_trj_idx][second_trj_idx] = CostInt(max_elem * costs_order_of_magnitude_);
+				cost_matrix[first_trj_idx][second_trj_idx] = CostInt(max_elem);
 			}
+
 		}
 	}
 
@@ -397,7 +395,7 @@ CostInt KalmanFilterExperimental::InitializeCostMatrixTrackLinking(
 	{
 		for (int j = 0; j < cost_matrix.size(); ++j)
 		{
-			cost_matrix[i][j] = CostInt(max_elem * costs_order_of_magnitude_) - cost_matrix[i][j];
+			cost_matrix[i][j] = CostInt(max_elem) - cost_matrix[i][j];
 		}
 	}
 
@@ -429,6 +427,31 @@ void KalmanFilterExperimental::PerformDataAssociationTrackLinking(
 		c = CostInt((max_cost - c) / costs_order_of_magnitude_);
 	});
 }//END of Perform Data Associations for Track Linking
+
+ // //
+ // // Created by Stanislav Stepaniuk on 23.08.18 
+ // //
+ // // Perform Data Associations for Track Linking
+ //void KalmanFilterExperimental::PerformDataAssociationTrackLinking(
+ //	std::map<int, std::vector<Eigen::VectorXf>> &trajectories,
+ //	std::map<int, std::vector<int>> &timestamps,
+ //	double &max_elem,
+ //	std::vector<int> &target_indexes,
+ //	std::vector<std::vector<CostInt>> &cost_matrix,
+ //	std::vector<int> &assignments,
+ //	std::vector<CostInt> &costs)
+ //{
+ //
+ //	CostInt max_cost = max_elem;
+ //	HungarianAlgorithm hungarian_algorithm(target_indexes.size(), cost_matrix);
+ //	hungarian_algorithm.Start(assignments, costs);
+ //	std::for_each(costs.begin(),
+ //		costs.end(),
+ //		[&](CostInt &c)
+ //	{
+ //		c = CostInt((max_cost - c) / costs_order_of_magnitude_);
+ //	});
+ //}//END of Perform Data Associations for Track Linking
 
 void KalmanFilterExperimental::PerformEstimation(int image_idx,
 	std::map<int, Eigen::VectorXf> &targets,
