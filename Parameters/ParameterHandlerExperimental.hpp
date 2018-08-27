@@ -23,6 +23,8 @@ public:
 	const std::string& GetKalmanFilterSubfolder();
 	const std::string& GetKalmanFilterOutputFileName();
 	const std::string& GetKalmanFilterMatlabOutputFileName();
+	const std::string & GetTrackLinkingOutputFileName();
+	const std::string & GetTrackLinkingMatlabOutputFileName();
 	const std::string& GetDataAnalysisSubfolder();
 
 	int GetFirstImage();
@@ -58,6 +60,9 @@ private:
 	std::string kalman_filter_subfolder_;
 	std::string kalman_filter_output_file_name_;
 	std::string kalman_filter_matlab_output_file_name_;
+
+	std::string track_linking_output_file_name_;
+	std::string track_linking_matlab_output_file_name_;
 	std::string data_analysis_subfolder_;
 
 	int first_image_;

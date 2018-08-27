@@ -106,6 +106,7 @@ void MultitargetTracker::StartTrackLinkingViaTemporalAssignment(const std::strin
 
 	KalmanFilterExperimental kalman_filter(parameter_handler, image_processing_engine);
 	kalman_filter.InitializeTrajectories(trajectories_, timestamps_, modified_solution_file);
+	kalman_filter.CreateNewTrackLinkingOutputFiles(parameter_handler);
 	kalman_filter.PerformTrackLinking(trajectories_, timestamps_);
 
 }//END of Linking separate tracks of the same object via temporal assignment

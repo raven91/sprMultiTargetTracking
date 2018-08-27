@@ -24,6 +24,7 @@ public:
 	~KalmanFilterExperimental();
 
 	void CreateNewKalmanFilterOutputFiles(ParameterHandlerExperimental & parameter_handler);
+	void CreateNewTrackLinkingOutputFiles(ParameterHandlerExperimental & parameter_handler);
 	void InitializeTargets(std::map<int, Eigen::VectorXf> &targets, const std::vector<Eigen::VectorXf> &detections);
 	void InitializeTargets(std::map<int, Eigen::VectorXf>& targets, std::ifstream & file);
 	void ObtainNewDetections(std::vector<Eigen::VectorXf>& detections, std::ifstream & file);
@@ -39,6 +40,9 @@ private:
 	ImageProcessingEngine &image_processing_engine_;
 	std::ofstream kalman_filter_output_file_;
 	std::ofstream kalman_filter_matlab_output_file_;
+
+	std::ofstream track_linking_output_file_;
+	std::ofstream track_linking_matlab_output_file_;
 	std::map<int, int> unmatched_;
 	int max_prediction_time_;
 	int max_target_index_;
@@ -86,6 +90,8 @@ private:
 	void CorrectForOrientationUniqueness(std::map<int, Eigen::VectorXf> &targets);
 	void SaveTargets(std::ofstream &file, int image_idx, const std::map<int, Eigen::VectorXf> &targets);
 	void SaveTargetsMatlab(std::ofstream &file, int image_idx, const std::map<int, Eigen::VectorXf> &targets);
+	void SaveTrajectories(std::ofstream & file, std::map<int, std::vector<Eigen::VectorXf>>& trajectories);
+	void SaveTrajectoriesMatlab(std::ofstream & file, std::map<int, std::vector<Eigen::VectorXf>>& trajectories);
 	void SaveImages(int image_idx, const std::map<int, Eigen::VectorXf> &targets);
 
 	void PerformDataAssociationTrackLinking(std::map<int, std::vector<Eigen::VectorXf>>& trajectories,
@@ -95,6 +101,14 @@ private:
 		std::vector<std::vector<CostInt>>& cost_matrix,
 		std::vector<int>& assignments,
 		std::vector<CostInt>& costs);
+
+	void PerformTrackConnecting(std::map<int, std::vector<Eigen::VectorXf>>& trajectories,
+		std::map<int, std::vector<int>>& timestamps,
+		std::vector<int>& target_indexes,
+		std::vector<int>& assignments,
+		std::vector<CostInt>& costs,
+		int delta,
+		int tau);
 
 
 	CostInt InitializeCostMatrixTrackLinking(std::map<int, std::vector<Eigen::VectorXf>>& trajectories,
