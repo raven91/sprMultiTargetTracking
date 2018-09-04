@@ -22,6 +22,7 @@ class ImageProcessingEngine
   explicit ImageProcessingEngine(ParameterHandlerExperimental &parameter_handler);
   ~ImageProcessingEngine();
 
+  void CreateNewImageProcessingOutputFile(ParameterHandlerExperimental &parameter_handler);
   void RetrieveBacterialPositions();
   void RetrieveBacterialData(int image, std::vector<Eigen::VectorXf> &detections);
   void ProcessAdditionalDetections(const std::vector<int> &indexes_to_unassigned_detections,
@@ -29,7 +30,8 @@ class ImageProcessingEngine
                                    const std::vector<Eigen::VectorXf> &detections);
 
   const cv::Mat &GetSourceImage();
-  const std::vector<cv::Point>& GetContour(int idx);
+  const cv::Mat &GetSourceImage(int image);
+  const std::vector<cv::Point> &GetContour(int idx);
 
  private:
 

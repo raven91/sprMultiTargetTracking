@@ -101,18 +101,10 @@ void KalmanFilterSynthetic::ObtainNewDetections(std::vector<Eigen::VectorXf> &de
   int number_of_detections = 0;
 
   file >> time_idx >> number_of_detections;
-//  if (time_idx >= 425)
-//  {
-//    std::cout << "debug" << std::endl;
-//  }
   for (int b = 0; b < number_of_detections; ++b)
   {
     file >> detection_idx >> new_detection(0) >> new_detection(1) >> new_detection(2) >> new_detection(3);
     detections.push_back(new_detection);
-//    if (detection_idx >= 40)
-//    {
-//      std::cout << "debug" << std::endl;
-//    }
   }
 }
 

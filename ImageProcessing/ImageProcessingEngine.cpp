@@ -28,17 +28,20 @@ ImageProcessingEngine::ImageProcessingEngine(ParameterHandlerExperimental &param
   edge_image_ = cv::Mat::zeros(0, 0, CV_8UC1);
   convexity_defects_image_ = cv::Mat::zeros(0, 0, CV_8UC1);
   disconnected_image_ = cv::Mat::zeros(0, 0, CV_8UC1);
-
-  std::string image_processing_output_file_name =
-      parameter_handler_.GetInputFolder() + parameter_handler.GetDataAnalysisSubfolder()
-          + parameter_handler.GetImageProcessingOutputFileName();
-  image_processing_output_file_.open(image_processing_output_file_name, std::ios::out | std::ios::trunc);
-  assert(image_processing_output_file_.is_open());
 }
 
 ImageProcessingEngine::~ImageProcessingEngine()
 {
   image_processing_output_file_.close();
+}
+
+void ImageProcessingEngine::CreateNewImageProcessingOutputFile(ParameterHandlerExperimental &parameter_handler)
+{
+  std::string image_processing_output_file_name =
+      parameter_handler_.GetInputFolder() + parameter_handler.GetDataAnalysisSubfolder()
+          + parameter_handler.GetImageProcessingOutputFileName();
+  image_processing_output_file_.open(image_processing_output_file_name, std::ios::out | std::ios::trunc);
+  assert(image_processing_output_file_.is_open());
 }
 
 void ImageProcessingEngine::RetrieveBacterialData(int image, std::vector<Eigen::VectorXf> &detections)

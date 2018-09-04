@@ -7,9 +7,10 @@
 #include <fstream>
 #include <map>
 
-ParameterHandlerExperimental::ParameterHandlerExperimental()
+ParameterHandlerExperimental::ParameterHandlerExperimental(const std::string& file_name)
 {
-  std::ifstream parameters_file("/Users/nikita/CLionProjects/sprMultiTargetTracking/Parameters/ConfigExperimental.cfg", std::ios::in);
+//  std::ifstream parameters_file("/Users/nikita/CLionProjects/sprMultiTargetTracking/Parameters/ConfigExperimental.cfg", std::ios::in);
+  std::ifstream parameters_file(file_name, std::ios::in);
   assert(parameters_file.is_open());
 
   // read string values
@@ -22,6 +23,8 @@ ParameterHandlerExperimental::ParameterHandlerExperimental()
   parameters_file >> kalman_filter_subfolder_ >> kalman_filter_subfolder_;
   parameters_file >> kalman_filter_output_file_name_ >> kalman_filter_output_file_name_;
   parameters_file >> kalman_filter_matlab_output_file_name_ >> kalman_filter_matlab_output_file_name_;
+  parameters_file >> track_linking_output_file_name_ >> track_linking_output_file_name_;
+  parameters_file >> track_linking_matlab_output_file_name_ >> track_linking_matlab_output_file_name_;
   parameters_file >> data_analysis_subfolder_ >> data_analysis_subfolder_;
 
   // read real values
@@ -106,6 +109,16 @@ const std::string &ParameterHandlerExperimental::GetKalmanFilterOutputFileName()
 const std::string &ParameterHandlerExperimental::GetKalmanFilterMatlabOutputFileName()
 {
   return kalman_filter_matlab_output_file_name_;
+}
+
+const std::string &ParameterHandlerExperimental::GetTrackLinkingOutputFileName()
+{
+  return track_linking_output_file_name_;
+}
+
+const std::string &ParameterHandlerExperimental::GetTrackLinkingMatlabOutputFileName()
+{
+  return track_linking_matlab_output_file_name_;
 }
 
 const std::string& ParameterHandlerExperimental::GetDataAnalysisSubfolder()

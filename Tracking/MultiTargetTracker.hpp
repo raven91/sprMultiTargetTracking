@@ -10,23 +10,33 @@
 #include <vector>
 #include <map>
 
+#include <boost/filesystem.hpp>
+#include <boost/regex.hpp>
+
 #include <eigen3/Eigen/Dense>
 
 class MultitargetTracker
 {
-public:
+ public:
 
-    MultitargetTracker();
-    ~MultitargetTracker();
+  MultitargetTracker();
+  ~MultitargetTracker();
 
-    void StartOnExperimentalData();
-    void StartOnSyntheticData(Real phi, Real a, Real U0, Real kappa, Real percentage_of_misdetections);
-    void StartOnSyntheticDataForDifferentParameters();
+  void StartOnExperimentalData();
+  void PerformImageProcessingForOneExperiment(const std::string &file_name);
+  void StartFilteringWithoutImageProcessingForOneExperiment(const std::string &file_name);
+  void StartTrackLinkingViaTemporalAssignment(const std::string &configuration_file_name);
+  void StartImageProcessingOrFilteringForMultipleExperiments(const char &dependence);
 
-private:
+  void StartOnSyntheticData(Real phi, Real a, Real U0, Real kappa, Real percentage_of_misdetections);
+  void StartOnSyntheticDataForDifferentParameters();
 
-    std::map<int, Eigen::VectorXf> targets_;    // i -> x_i y_i v_x_i v_y_i area_i slope_i width_i height_i
-    std::vector<Eigen::VectorXf> detections_;   // observations
+ private:
+
+  std::map<int, Eigen::VectorXf> targets_;    // i -> x_i y_i v_x_i v_y_i area_i slope_i width_i height_i
+  std::vector<Eigen::VectorXf> detections_;   // observations
+  std::map<int, std::vector<Eigen::VectorXf>> trajectories_;   // vector of vectors of i -> x_i y_i v_x_i v_y_i area_i slope_i width_i height_i
+  std::map<int, std::vector<int>> timestamps_;   // vector of timestamps for bacteria
 
 };
 

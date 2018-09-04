@@ -12,7 +12,9 @@
 
 MultitargetTracker::MultitargetTracker() :
     targets_(),
-    detections_()
+    detections_(),
+    trajectories_(),
+    timestamps_()
 {
   std::cout << "multi-target tracking started" << std::endl;
 }
@@ -24,8 +26,10 @@ MultitargetTracker::~MultitargetTracker()
 
 void MultitargetTracker::StartOnExperimentalData()
 {
-  ParameterHandlerExperimental parameter_handler;
+  ParameterHandlerExperimental parameter_handler
+      (std::string("/Users/nikita/CLionProjects/sprMultiTargetTracking/Parameters/ConfigExperimental.cfg"));
   ImageProcessingEngine image_processing_engine(parameter_handler);
+  image_processing_engine.CreateNewImageProcessingOutputFile(parameter_handler);
   KalmanFilterExperimental kalman_filter(parameter_handler, image_processing_engine);
 
   image_processing_engine.RetrieveBacterialData(parameter_handler.GetFirstImage(), detections_);
@@ -36,6 +40,108 @@ void MultitargetTracker::StartOnExperimentalData()
     image_processing_engine.RetrieveBacterialData(i, detections_);
     kalman_filter.PerformEstimation(i, targets_, detections_);
   }
+}
+
+void MultitargetTracker::PerformImageProcessingForOneExperiment(const std::string &configuration_file_name)
+{
+  ParameterHandlerExperimental parameter_handler(configuration_file_name);
+  ImageProcessingEngine image_processing_engine(parameter_handler);
+  image_processing_engine.CreateNewImageProcessingOutputFile(parameter_handler);
+
+  for (int i = parameter_handler.GetFirstImage(); i <= parameter_handler.GetLastImage(); ++i)
+  {
+    image_processing_engine.RetrieveBacterialData(i, detections_);
+  }
+}
+
+void MultitargetTracker::StartFilteringWithoutImageProcessingForOneExperiment(const std::string &configuration_file_name)
+{
+  ParameterHandlerExperimental parameter_handler(configuration_file_name);
+  std::ostringstream image_processing_data_input_file_name;
+  image_processing_data_input_file_name << parameter_handler.GetInputFolder()
+                                        << parameter_handler.GetDataAnalysisSubfolder()
+                                        << parameter_handler.GetImageProcessingOutputFileName();
+  std::ifstream image_processing_input_file(image_processing_data_input_file_name.str(), std::ios::in);
+  assert(image_processing_input_file.is_open());
+
+  ImageProcessingEngine image_processing_engine(parameter_handler);
+  KalmanFilterExperimental kalman_filter(parameter_handler, image_processing_engine);
+  kalman_filter.CreateNewKalmanFilterOutputFiles(parameter_handler);
+  kalman_filter.InitializeTargets(targets_, image_processing_input_file);
+
+  for (int i = parameter_handler.GetFirstImage() + 1; i <= parameter_handler.GetLastImage(); ++i)
+  {
+    kalman_filter.ObtainNewDetections(detections_, image_processing_input_file);
+    kalman_filter.PerformEstimation(i, targets_, detections_);
+  }
+}
+
+void MultitargetTracker::StartTrackLinkingViaTemporalAssignment(const std::string &configuration_file_name)
+{
+  ParameterHandlerExperimental parameter_handler(configuration_file_name);
+  std::ostringstream filtered_trajectories_file_name_buffer;
+  filtered_trajectories_file_name_buffer << parameter_handler.GetInputFolder()
+                                         << parameter_handler.GetDataAnalysisSubfolder()
+                                         << parameter_handler.GetKalmanFilterOutputFileName();
+  std::ifstream filtered_trajectories_file(filtered_trajectories_file_name_buffer.str(), std::ios::in);
+  assert(filtered_trajectories_file.is_open());
+
+  ImageProcessingEngine image_processing_engine(parameter_handler);
+  KalmanFilterExperimental kalman_filter(parameter_handler, image_processing_engine);
+  kalman_filter.InitializeTrajectories(trajectories_, timestamps_, filtered_trajectories_file);
+  kalman_filter.CreateNewTrackLinkingOutputFiles(parameter_handler);
+  kalman_filter.PerformTrackLinking(trajectories_, timestamps_);
+}
+
+void MultitargetTracker::StartImageProcessingOrFilteringForMultipleExperiments(const char &dependence)
+{
+  boost::filesystem::path current_dir("//tsclient/D/Documents/Internship/02.08-_MultiTargetTracking/");
+  boost::filesystem::path origin_dir = current_dir;
+  boost::regex pattern("20.*");
+  for (boost::filesystem::directory_iterator iter(current_dir), end; iter != end; ++iter)
+  {
+    boost::smatch match;
+    std::string fn = iter->path().filename().string();
+    if (boost::regex_match(fn, match, pattern))
+    {
+      std::cout << match[0] << "\n";
+      current_dir += (fn + "/");
+      boost::regex pattern("100.*");
+      for (boost::filesystem::directory_iterator iter(current_dir), end; iter != end; ++iter)
+      {
+        boost::smatch match;
+        std::string fn = iter->path().filename().string();
+        if (boost::regex_match(fn, match, pattern))
+        {
+          boost::filesystem::path current_dir_copy = current_dir;
+          current_dir += (fn + "/");
+          boost::regex pattern("Config.*");
+          for (boost::filesystem::directory_iterator iter(current_dir), end; iter != end; ++iter)
+          {
+            boost::smatch match;
+            std::string fn = iter->path().filename().string();
+            if ((boost::regex_match(fn, match, pattern)))
+            {
+              current_dir += fn;
+
+              switch (dependence)
+              {
+                case '1':PerformImageProcessingForOneExperiment(current_dir.string());
+                  break;
+                case '2':StartFilteringWithoutImageProcessingForOneExperiment(current_dir.string());
+                  break;
+                case '3':StartTrackLinkingViaTemporalAssignment(current_dir.string());
+                  break;
+              }
+            }
+          } // iter
+          current_dir = current_dir_copy;
+        }
+      } // iter
+      current_dir = origin_dir;
+    }
+  } // iter
+  // TODO: iter three times?
 }
 
 void MultitargetTracker::StartOnSyntheticData(Real phi, Real a, Real U0, Real kappa, Real percentage_of_misdetections)

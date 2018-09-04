@@ -2,11 +2,22 @@
 
 int main(int argc, const char *argv[])
 {
-//  const Real phi = 0.1, a = 4.0, U0 = 250.0, kappa = 0.0, percentage_of_misdetections = 0.1;
   MultitargetTracker multitarget_tracker;
-  multitarget_tracker.StartOnExperimentalData();
-//  multitarget_tracker.StartOnSyntheticData(phi, a, U0, kappa, percentage_of_misdetections);
-//  multitarget_tracker.StartOnSyntheticDataForDifferentParameters();
+  std::string experimental_configuration("/Volumes/Kruk/Swarming/20170705/100x_01-BF0_1to1600_yepd_1ms_6.2nm_noautofocus_v_2/ConfigExperimental.cfg");
+//  multitarget_tracker.PerformImageProcessingForOneExperiment(experimental_configuration);
+//  multitarget_tracker.StartFilteringWithoutImageProcessingForOneExperiment(experimental_configuration);
+  multitarget_tracker.StartTrackLinkingViaTemporalAssignment(experimental_configuration);
+
+  // FOR IMAGE PROCESSING
+//  multitarget_tracker.StartImageProcessingOrFilteringForMultipleExperiments('1');
+  // FOR TRACKING & KALMAN FILTERING
+  //multitarget_tracker.StartImageProcessingOrFilteringForMultipleExperiments('2');
+
+  // FOR TRACK LINKING
+//  multitarget_tracker.StartImageProcessingOrFilteringForMultipleExperiments('3');
+
+  //  multitarget_tracker.StartOnSyntheticData(phi, a, U0, kappa, percentage_of_misdetections);
+  //  multitarget_tracker.StartOnSyntheticDataForDifferentParameters();
 
   return 0;
 }
