@@ -23,24 +23,26 @@ public:
 		ImageProcessingEngine &image_processing_engine);
 	~KalmanFilterExperimental();
 
-	void CreateNewKalmanFilterOutputFiles(ParameterHandlerExperimental & parameter_handler);
-	void CreateNewTrackLinkingOutputFiles(ParameterHandlerExperimental & parameter_handler);
+	void CreateNewKalmanFilterOutputFiles(ParameterHandlerExperimental &parameter_handler);
+	void CreateNewTrackLinkingOutputFiles(ParameterHandlerExperimental &parameter_handler);
 	void InitializeTargets(std::map<int, Eigen::VectorXf> &targets, const std::vector<Eigen::VectorXf> &detections);
-	void InitializeTargets(std::map<int, Eigen::VectorXf>& targets, std::ifstream & file);
-	void ObtainNewDetections(std::vector<Eigen::VectorXf>& detections, std::ifstream & file);
-	void InitializeTrajectories(std::map<int, std::vector<Eigen::VectorXf>>& trajectories, std::map<int, std::vector<int>>& timeStamps, std::ifstream & file);
-	void PerformTrackLinking(std::map<int, std::vector<Eigen::VectorXf>>& trajectories, std::map<int, std::vector<int>>& timeStamps);
+	void InitializeTargets(std::map<int, Eigen::VectorXf> &targets, std::ifstream &file);
+	void ObtainNewDetections(std::vector<Eigen::VectorXf> &detections, std::ifstream &file);
+	void InitializeTrajectories(std::map<int, std::vector<Eigen::VectorXf>> &trajectories,
+		std::map<int, std::vector<int>> &timestamps,
+		std::ifstream &file);
 	void PerformEstimation(int image_idx,
 		std::map<int, Eigen::VectorXf> &targets,
 		const std::vector<Eigen::VectorXf> &detections);
+	void PerformTrackLinking(std::map<int, std::vector<Eigen::VectorXf>> &trajectories,
+		std::map<int, std::vector<int>> &timestamps);
 
 private:
 
-	ParameterHandlerExperimental & parameter_handler_;
+	ParameterHandlerExperimental &parameter_handler_;
 	ImageProcessingEngine &image_processing_engine_;
 	std::ofstream kalman_filter_output_file_;
 	std::ofstream kalman_filter_matlab_output_file_;
-
 	std::ofstream track_linking_output_file_;
 	std::ofstream track_linking_matlab_output_file_;
 	std::map<int, int> unmatched_;
@@ -80,7 +82,7 @@ private:
 		const std::vector<int> &assignments,
 		const std::vector<int> &target_indexes);
 	void MarkAllTargetsAsUnmatched(std::map<int, Eigen::VectorXf> &targets);
-	void RemoveRecapturedTargetsFromStrikes(std::map<int, Eigen::VectorXf> &targets,
+	void RemoveRecapturedTargetsFromUnmatched(std::map<int, Eigen::VectorXf> &targets,
 		const std::vector<int> &assignments,
 		const std::vector<int> &target_indexes);
 	void AddNewTargets(std::map<int, Eigen::VectorXf> &targets,
@@ -88,42 +90,34 @@ private:
 		const std::vector<int> &assignments);
 	void DeleteLongLostTargets(std::map<int, Eigen::VectorXf> &targets);
 	void CorrectForOrientationUniqueness(std::map<int, Eigen::VectorXf> &targets);
-	void SaveTargets(std::ofstream &file, int image_idx, const std::map<int, Eigen::VectorXf> &targets);
-	void SaveTargetsMatlab(std::ofstream &file, int image_idx, const std::map<int, Eigen::VectorXf> &targets);
-	void SaveTrajectories(std::ofstream & file, std::map<int, std::vector<Eigen::VectorXf>>& trajectories);
-	void SaveTrajectoriesMatlab(std::ofstream & file, std::map<int, std::vector<Eigen::VectorXf>>& trajectories);
-	void SaveImages(int image_idx, const std::map<int, Eigen::VectorXf> &targets);
-
-	void PerformDataAssociationTrackLinking(std::map<int, std::vector<Eigen::VectorXf>>& trajectories,
-		std::map<int, std::vector<int>>& timestamps,
-		double & max_elem,
-		std::vector<int>& target_indexes,
-		std::vector<std::vector<CostInt>>& cost_matrix,
-		std::vector<int>& assignments,
-		std::vector<CostInt>& costs);
-
-	void PerformTrackConnecting(std::map<int, std::vector<Eigen::VectorXf>>& trajectories,
-		std::map<int, std::vector<int>>& timestamps,
-		std::vector<int>& target_indexes,
-		std::vector<int>& assignments,
-		std::vector<CostInt>& costs,
+	void PerformDataAssociationForTrackLinking(std::map<int, std::vector<Eigen::VectorXf>> &trajectories,
+		std::map<int, std::vector<int>> &timestamps,
+		double &max_elem,
+		std::vector<int> &target_indexes,
+		std::vector<std::vector<CostInt>> &cost_matrix,
+		std::vector<int> &assignments,
+		std::vector<CostInt> &costs);
+	void PerformTrackConnecting(std::map<int, std::vector<Eigen::VectorXf>> &trajectories,
+		std::map<int, std::vector<int>> &timestamps,
+		std::vector<int> &target_indexes,
+		std::vector<int> &assignments,
+		std::vector<CostInt> &costs,
 		int delta,
 		int tau);
 
-
-	CostInt InitializeCostMatrixTrackLinking(std::map<int, std::vector<Eigen::VectorXf>>& trajectories,
-		std::map<int, std::vector<int>>& timestamps,
-		double & max_elem,
-		std::vector<std::vector<CostInt>>& cost_matrix,
-		std::vector<int>& target_indexes);
-
+	void SaveTargets(std::ofstream &file, int image_idx, const std::map<int, Eigen::VectorXf> &targets);
+	void SaveTargetsMatlab(std::ofstream &file, int image_idx, const std::map<int, Eigen::VectorXf> &targets);
+	void SaveTrajectories(std::ofstream & file, std::map<int, std::vector<Eigen::VectorXf>>& trajectories, std::map<int, std::vector<int>>& timestamps);
+	void SaveTrajectoriesMatlab(std::ofstream & file, std::map<int, std::vector<Eigen::VectorXf>>& trajectories, std::map<int, std::vector<int>>& timestamps);
+	void SaveImages(int image_idx, const std::map<int, Eigen::VectorXf> &targets);
 
 	CostInt InitializeCostMatrix(const std::map<int, Eigen::VectorXf> &targets,
 		const std::vector<Eigen::VectorXf> &detections,
 		std::vector<std::vector<CostInt>> &cost_matrix,
 		std::vector<int> &target_indexes);
-	CostInt InitializeSecondaryCostMatrix(const std::map<int, Eigen::VectorXf> &targets,
-		const std::vector<Eigen::VectorXf> &detections,
+	CostInt InitializeCostMatrixForTrackLinking(std::map<int, std::vector<Eigen::VectorXf>> &trajectories,
+		std::map<int, std::vector<int>> &timestamps,
+		double &max_elem,
 		std::vector<std::vector<CostInt>> &cost_matrix,
 		std::vector<int> &target_indexes);
 

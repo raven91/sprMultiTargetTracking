@@ -24,23 +24,10 @@ KalmanFilterExperimental::KalmanFilterExperimental(ParameterHandlerExperimental 
 	image_processing_engine_(image_processing_engine),
 	costs_order_of_magnitude_(1000.0),
 	unmatched_(),
-	max_prediction_time_(5),
+	max_prediction_time_(2),
 	max_target_index_(0)
 {
 
-	// ISOLATED INTO A SEPARATE METHOD ==>
-
-	//std::string kalman_filter_output_file_name =
-	//     parameter_handler_.GetInputFolder() + parameter_handler.GetDataAnalysisSubfolder()
-	//         + parameter_handler.GetKalmanFilterOutputFileName();
-	// kalman_filter_output_file_.open(kalman_filter_output_file_name, std::ios::out | std::ios::trunc);
-	// assert(kalman_filter_output_file_.is_open());
-
-	// std::string kalman_filter_matlab_output_file_name =
-	//     parameter_handler_.GetInputFolder() + parameter_handler_.GetDataAnalysisSubfolder()
-	//         + parameter_handler_.GetKalmanFilterMatlabOutputFileName();
-	// kalman_filter_matlab_output_file_.open(kalman_filter_matlab_output_file_name, std::ios::out | std::ios::trunc);
-	// assert(kalman_filter_matlab_output_file_.is_open());
 }
 
 KalmanFilterExperimental::~KalmanFilterExperimental()
@@ -51,10 +38,6 @@ KalmanFilterExperimental::~KalmanFilterExperimental()
 	track_linking_matlab_output_file_.close();
 }
 
-//
-// Created by Stanislav Stepaniuk on 20.08.18
-//
-// Separate Method for creating kalman filter & kalman filter matlab output files
 void KalmanFilterExperimental::CreateNewKalmanFilterOutputFiles(ParameterHandlerExperimental &parameter_handler)
 {
 	std::string kalman_filter_output_file_name =
@@ -68,12 +51,8 @@ void KalmanFilterExperimental::CreateNewKalmanFilterOutputFiles(ParameterHandler
 		+ parameter_handler_.GetKalmanFilterMatlabOutputFileName();
 	kalman_filter_matlab_output_file_.open(kalman_filter_matlab_output_file_name, std::ios::out | std::ios::trunc);
 	assert(kalman_filter_matlab_output_file_.is_open());
-}//END of Separate Method for creating kalman filter & kalman filter matlab output files
+}
 
- //
- // Created by Stanislav Stepaniuk on 24.08.18
- //
- // Separate Method for creating track linking output and track linking matlab output files
 void KalmanFilterExperimental::CreateNewTrackLinkingOutputFiles(ParameterHandlerExperimental &parameter_handler)
 {
 	std::string track_linking_output_file_name =
@@ -87,7 +66,7 @@ void KalmanFilterExperimental::CreateNewTrackLinkingOutputFiles(ParameterHandler
 		+ parameter_handler_.GetTrackLinkingMatlabOutputFileName();
 	track_linking_matlab_output_file_.open(track_linking_matlab_output_file_name, std::ios::out | std::ios::trunc);
 	assert(track_linking_matlab_output_file_.is_open());
-}//END of Separate Method for creating track linking output and track linking matlab output files
+}
 
 void KalmanFilterExperimental::InitializeTargets(std::map<int, Eigen::VectorXf> &targets,
 	const std::vector<Eigen::VectorXf> &detections)
@@ -117,10 +96,6 @@ void KalmanFilterExperimental::InitializeTargets(std::map<int, Eigen::VectorXf> 
 	SaveImages(parameter_handler_.GetFirstImage(), targets);
 }
 
-//
-// Created by Stanislav Stepaniuk on 14.08.18 MODOFIED on 15.08.18
-//
-// New function for initializing targets
 void KalmanFilterExperimental::InitializeTargets(std::map<int, Eigen::VectorXf> &targets, std::ifstream &file)
 {
 	int last_index = 0;
@@ -144,10 +119,8 @@ void KalmanFilterExperimental::InitializeTargets(std::map<int, Eigen::VectorXf> 
 				last_index = std::prev(targets.end())->first;
 			}
 			file >> target_idx
-				>> new_target(0) >> new_target(1)
-				>> new_target(2) >> new_target(3)
-				>> new_target(4) >> new_target(5)
-				>> new_target(6) >> new_target(7);
+				>> new_target(0) >> new_target(1) >> new_target(2) >> new_target(3)
+				>> new_target(4) >> new_target(5) >> new_target(6) >> new_target(7);
 			targets[++last_index] = new_target;
 		}
 		max_target_index_ = last_index;
@@ -155,13 +128,9 @@ void KalmanFilterExperimental::InitializeTargets(std::map<int, Eigen::VectorXf> 
 
 	SaveTargets(kalman_filter_output_file_, parameter_handler_.GetFirstImage(), targets);
 	SaveTargetsMatlab(kalman_filter_matlab_output_file_, parameter_handler_.GetFirstImage(), targets);
-	SaveImages(parameter_handler_.GetFirstImage(), targets);
-}// END of New function for initializing targets
+	//  SaveImages(parameter_handler_.GetFirstImage(), targets);
+}
 
- //
- // Created by Stanislav Stepaniuk on 14.08.18
- //
- // Obtaining new detections for filtering 
 void KalmanFilterExperimental::ObtainNewDetections(std::vector<Eigen::VectorXf> &detections, std::ifstream &file)
 {
 	detections.clear();
@@ -175,19 +144,15 @@ void KalmanFilterExperimental::ObtainNewDetections(std::vector<Eigen::VectorXf> 
 	for (int b = 0; b < number_of_detections; ++b)
 	{
 		file >> detection_idx
-			>> new_detection(0) >> new_detection(1)
-			>> new_detection(2) >> new_detection(3)
-			>> new_detection(4) >> new_detection(5)
-			>> new_detection(6) >> new_detection(7);
+			>> new_detection(0) >> new_detection(1) >> new_detection(2) >> new_detection(3)
+			>> new_detection(4) >> new_detection(5) >> new_detection(6) >> new_detection(7);
 		detections.push_back(new_detection);
 	}
-}//END of Obtaining new detections for filtering 
+}
 
- //
- // Created by Stanislav Stepaniuk on 16.08.18 
- //
- // Initializing trajectories
-void KalmanFilterExperimental::InitializeTrajectories(std::map<int, std::vector<Eigen::VectorXf>> &trajectories, std::map<int, std::vector<int>> &timestamps, std::ifstream &file)
+void KalmanFilterExperimental::InitializeTrajectories(std::map<int, std::vector<Eigen::VectorXf>> &trajectories,
+	std::map<int, std::vector<int>> &timestamps,
+	std::ifstream &file)
 {
 	std::cout << "trajectory initialization started" << std::endl;
 	int last_index = 0;
@@ -201,10 +166,8 @@ void KalmanFilterExperimental::InitializeTrajectories(std::map<int, std::vector<
 		for (int b = 0; b < number_of_trajectories; ++b)
 		{
 			file >> trajectory_idx
-				>> new_trajectory(0) >> new_trajectory(1)
-				>> new_trajectory(2) >> new_trajectory(3)
-				>> new_trajectory(4) >> new_trajectory(5)
-				>> new_trajectory(6) >> new_trajectory(7);
+				>> new_trajectory(0) >> new_trajectory(1) >> new_trajectory(2) >> new_trajectory(3)
+				>> new_trajectory(4) >> new_trajectory(5) >> new_trajectory(6) >> new_trajectory(7);
 
 			if (trajectories.find(trajectory_idx) == trajectories.end())
 			{
@@ -214,361 +177,20 @@ void KalmanFilterExperimental::InitializeTrajectories(std::map<int, std::vector<
 			trajectories[trajectory_idx].push_back(new_trajectory);
 			timestamps[trajectory_idx].push_back(time_idx);
 		}
+		if (time_idx == 100)
+			break;
 	}
-}// END of  Initializing trajectories
-
- //
- // Created by Stanislav Stepaniuk on 16.08.18 MODOFIED on 27.08.18
- //
- // Perform TrackLinking Via Temporal Assignment
-void KalmanFilterExperimental::PerformTrackLinking(std::map<int, std::vector<Eigen::VectorXf>> &trajectories, std::map<int, std::vector<int>> &timestamps)
-
-{
-	int counter = 0;
-	const int delta = 2;
-	const int tau = 2;
-	int n_max_dim = 0;
-	double max_elem = 0;
-	std::cout << "trajectory linking started" << std::endl;
-
-	n_max_dim = (int)trajectories.size();
-	std::vector<int> target_indexes;
-	std::vector<std::vector<CostInt>> cost_matrix(n_max_dim, std::vector<CostInt>(n_max_dim, 0));
-
-	std::map<int, std::vector<Eigen::VectorXf>>::iterator iter_trj_outer = trajectories.begin();
-
-	for (iter_trj_outer; iter_trj_outer != trajectories.end(); ++iter_trj_outer)
-	{
-		std::map<int, std::vector<Eigen::VectorXf>>::iterator iter_trj_inner = trajectories.begin();
-		for (iter_trj_inner; iter_trj_inner != trajectories.end(); ++iter_trj_inner)
-		{
-			int first_trj_idx = iter_trj_outer->first;
-			int second_trj_idx = iter_trj_inner->first;
-
-			int Ti_e = timestamps[first_trj_idx][timestamps[first_trj_idx].size() - 1];
-			int Tj_b = timestamps[second_trj_idx][0];
-
-			//EXCLUDING trajectories with length < 2
-			if (!(iter_trj_outer->second.size() > 1 && iter_trj_inner->second.size() > 1))
-			{
-				cost_matrix[iter_trj_outer->first][iter_trj_inner->first] = -1;
-				continue;
-			}
-
-			if (iter_trj_inner->first == iter_trj_outer->first)
-			{
-				cost_matrix[iter_trj_outer->first][iter_trj_inner->first] = -1;
-			}
-			if ((Tj_b - Ti_e >= 1) &&
-				(Tj_b - Ti_e <= delta))
-			{
-				int s = Tj_b - Ti_e;
-
-				double v_t_x_outer = iter_trj_outer->second[iter_trj_outer->second.size() - 1](0) - iter_trj_outer->second[iter_trj_outer->second.size() - 2](0);
-				double v_t_y_outer = iter_trj_outer->second[iter_trj_outer->second.size() - 1](1) - iter_trj_outer->second[iter_trj_outer->second.size() - 2](1);
-
-				double v_t_x_inner = iter_trj_inner->second[1](0) - (iter_trj_inner->second[0](0));
-				double v_t_y_inner = iter_trj_inner->second[1](1) - (iter_trj_inner->second[0](1));
-
-				std::vector<std::vector<double>>outer_vect;
-				std::vector<std::vector<double>>inner_vect;
-
-				//building continuation of outer trajectory
-				double nx = iter_trj_outer->second[iter_trj_outer->second.size() - 1](0);
-				double ny = iter_trj_outer->second[iter_trj_outer->second.size() - 1](1);
-				for (int i = 0; i <= s; ++i)
-				{
-					std::vector<double> nvcoord;
-
-					if (i == 0)
-						//push the last element of outer trajectory
-					{
-						nvcoord.push_back(nx);
-						nvcoord.push_back(ny);
-						outer_vect.push_back(nvcoord);
-					}
-					else
-						//push other elements
-					{
-						nx += v_t_x_outer;
-						ny += v_t_y_outer;
-
-						nvcoord.push_back(nx);
-						nvcoord.push_back(ny);
-						outer_vect.push_back(nvcoord);
-					}
-
-				}
-
-				//building beginning of inner trajectory
-				nx = iter_trj_inner->second[0](0);
-				ny = iter_trj_inner->second[0](1);
-				for (int i = 0; i <= s; ++i)
-				{
-					std::vector<double> nvcoord;
-
-					if (i == 0)
-						//push the first element of inner trajectory
-					{
-						nvcoord.push_back(nx);
-						nvcoord.push_back(ny);
-						inner_vect.push_back(nvcoord);
-					}
-					else
-						//push other elements
-					{
-						nx -= v_t_x_inner;
-						ny -= v_t_y_inner;
-
-						nvcoord.push_back(nx);
-						nvcoord.push_back(ny);
-						inner_vect.push_back(nvcoord);
-					}
-				}
-				std::reverse(inner_vect.begin(), inner_vect.end());
-
-				double res = 0;
-				for (int i = 0; i <= s; ++i)
-				{
-					res += sqrt(pow((outer_vect[i][0] - inner_vect[i][0]), 2) +
-						pow((outer_vect[i][1] - inner_vect[i][1]), 2));
-				}
-				cost_matrix[first_trj_idx][second_trj_idx] = CostInt(res / (s + 1) * costs_order_of_magnitude_);
-
-				if (max_elem < cost_matrix[first_trj_idx][second_trj_idx])
-				{
-					max_elem = cost_matrix[first_trj_idx][second_trj_idx];
-				}
-			}
-			if ((Ti_e - Tj_b >= 0) &&
-				(Ti_e - Tj_b <= tau))
-			{
-
-				double res = 0;
-				int s = Ti_e - Tj_b;
-
-				for (int t = 0; t < s; ++t)
-				{
-					res += std::sqrt(std::pow((iter_trj_outer->second[iter_trj_outer->second.size() - s + t](0) - iter_trj_inner->second[t](0)), 2) +
-						std::pow((iter_trj_outer->second[iter_trj_outer->second.size() - s + t](1) - iter_trj_inner->second[t](1)), 2));
-				}
-				cost_matrix[first_trj_idx][second_trj_idx] = CostInt(res / (s + 1) * costs_order_of_magnitude_);
-
-				if (max_elem < cost_matrix[first_trj_idx][second_trj_idx])
-				{
-					max_elem = cost_matrix[first_trj_idx][second_trj_idx];
-				}
-			}
-			else
-			{
-				cost_matrix[iter_trj_outer->first][iter_trj_inner->first] = -1;
-			}
-
-
-		}
-	}
-
-	InitializeCostMatrixTrackLinking(trajectories, timestamps, max_elem, cost_matrix, target_indexes);
-
-	std::vector<int> assignments(n_max_dim, -1);
-	std::vector<CostInt> costs(n_max_dim, -1);
-
-	PerformDataAssociationTrackLinking(trajectories, timestamps, max_elem, target_indexes, cost_matrix, assignments, costs);
-	PerformTrackConnecting(trajectories, timestamps, target_indexes, assignments, costs, delta, tau);
-
-	SaveTrajectories(track_linking_output_file_, trajectories);
-	SaveTrajectoriesMatlab(track_linking_matlab_output_file_, trajectories);
-
-}// END of  Perform TrackLinking Via Temporal Assignment
-
- //
- // Created by Stanislav Stepaniuk on 22.08.18 
- //
- // Initialization of Cost Matrix for Track Linking 
-CostInt KalmanFilterExperimental::InitializeCostMatrixTrackLinking(
-	std::map<int, std::vector<Eigen::VectorXf>> &trajectories,
-	std::map<int, std::vector<int>> &timestamps,
-	double &max_elem,
-	std::vector<std::vector<CostInt>> &cost_matrix,
-	std::vector<int> &target_indexes)
-{
-	target_indexes.clear();
-
-	std::map<int, std::vector<Eigen::VectorXf>>::iterator iter_trj_outer = trajectories.begin();
-
-	for (iter_trj_outer; iter_trj_outer != trajectories.end(); ++iter_trj_outer)
-	{
-		target_indexes.push_back(iter_trj_outer->first);
-		std::map<int, std::vector<Eigen::VectorXf>>::iterator iter_trj_inner = trajectories.begin();
-		for (iter_trj_inner; iter_trj_inner != trajectories.end(); ++iter_trj_inner)
-		{
-			int first_trj_idx = iter_trj_outer->first;
-			int second_trj_idx = iter_trj_inner->first;
-
-			if (cost_matrix[first_trj_idx][second_trj_idx] < 0)
-			{
-				cost_matrix[first_trj_idx][second_trj_idx] = CostInt(max_elem);
-			}
-		}
-	}
-
-	// turn min cost problem into max cost problem
-	for (int i = 0; i < cost_matrix.size(); ++i)
-	{
-		for (int j = 0; j < cost_matrix.size(); ++j)
-		{
-			cost_matrix[i][j] = CostInt(max_elem) - cost_matrix[i][j];
-		}
-	}
-
-	return CostInt(max_elem);
-}//END of Initialization of Cost Matrix for Track Linking 
-
-
- //
- // Created by Stanislav Stepaniuk on 22.08.18 
- //
- // Perform Data Associations for Track Linking
-void KalmanFilterExperimental::PerformDataAssociationTrackLinking(
-	std::map<int, std::vector<Eigen::VectorXf>> &trajectories,
-	std::map<int, std::vector<int>> &timestamps,
-	double &max_elem,
-	std::vector<int> &target_indexes,
-	std::vector<std::vector<CostInt>> &cost_matrix,
-	std::vector<int> &assignments,
-	std::vector<CostInt> &costs)
-{
-
-	CostInt max_cost = max_elem;
-	HungarianAlgorithm hungarian_algorithm(target_indexes.size(), cost_matrix);
-	hungarian_algorithm.Start(assignments, costs);
-	std::for_each(costs.begin(),
-		costs.end(),
-		[&](CostInt &c)
-	{
-		c = CostInt((max_cost - c) / costs_order_of_magnitude_);
-	});
-}//END of Perform Data Associations for Track Linking
-
- //
- // Created by Stanislav Stepaniuk on 24.08.18 
- //
- // Perform Track Connecting
-void KalmanFilterExperimental::PerformTrackConnecting(
-	std::map<int, std::vector<Eigen::VectorXf>> &trajectories,
-	std::map<int, std::vector<int>> &timestamps,
-	std::vector<int> &target_indexes,
-	std::vector<int> &assignments,
-	std::vector<CostInt> &costs,
-	int delta,
-	int tau)
-{
-	int max_allowed_distance = 15 * (std::min(delta, tau));
-
-	// check the distance
-	for (int i = 0; i < costs.size(); ++i)
-	{
-		if (costs[i] > max_allowed_distance)
-			continue;
-
-		int min_idx = std::min(target_indexes[i], assignments[i]);
-		int max_idx = std::max(target_indexes[i], assignments[i]);
-
-		//std::cout << "YEP! you found it";
-		//std::cout << " = " << costs[i]<< std::endl;
-
-		std::map<int, std::vector<Eigen::VectorXf>>::iterator outer_trajectory_iter;
-		std::map<int, std::vector<Eigen::VectorXf>>::iterator inner_trajectory_iter;
-		std::map<int, std::vector<int>>::iterator outer_timestamps_iter;
-		std::map<int, std::vector<int>>::iterator inner_timestamps_iter;
-
-		Eigen::VectorXf new_traj_part(8);
-		std::vector<Eigen::VectorXf> new_trajectory;
-		std::vector<int> new_timestamp;
-		std::vector<int> trial;
-
-		outer_trajectory_iter = trajectories.find(min_idx);
-		inner_trajectory_iter = trajectories.find(max_idx);
-		outer_timestamps_iter = timestamps.find(min_idx);
-		inner_timestamps_iter = timestamps.find(max_idx);
-
-		int first_trj_idx = outer_trajectory_iter->first;
-		int second_trj_idx = inner_trajectory_iter->first;
-
-		int Ti_e = timestamps[first_trj_idx][timestamps[first_trj_idx].size() - 1];
-		int Tj_b = timestamps[second_trj_idx][0];
-
-		int s = Ti_e - Tj_b;
-
-		//creating new trajectory by connecting previous two
-		for (int f = 0; f < outer_trajectory_iter->second.size() - s; ++f)
-		{
-			new_trajectory.push_back(outer_trajectory_iter->second[f]);
-		}
-
-		for (int a = 0; a < s; ++a)
-		{
-			for (int b = 0; b < outer_trajectory_iter->second[0].size(); ++b)
-			{
-				new_traj_part(b) = (outer_trajectory_iter->second[outer_trajectory_iter->second.size() - s + a](b) + inner_trajectory_iter->second[a](b)) / 2;
-			}
-			new_trajectory.push_back(new_traj_part);
-		}
-
-		for (int l = s; l < inner_trajectory_iter->second.size(); ++l)
-		{
-			new_trajectory.push_back(inner_trajectory_iter->second[l]);
-		}
-
-		//creating new timestamp
-		for (int f = 0; f < outer_timestamps_iter->second.size(); ++f)
-		{
-			new_timestamp.push_back(outer_timestamps_iter->second[f]);
-		}
-
-		for (int l = s; l < inner_trajectory_iter->second.size(); ++l)
-		{
-			new_timestamp.push_back(inner_timestamps_iter->second[l]);
-		}
-
-		//removing old unnecessary trajectories from map
-		outer_trajectory_iter = trajectories.find(min_idx);
-		if (outer_trajectory_iter != trajectories.end())
-			trajectories.erase(outer_trajectory_iter);
-		outer_trajectory_iter = trajectories.find(max_idx);
-		if (outer_trajectory_iter != trajectories.end())
-			trajectories.erase(outer_trajectory_iter);
-
-		//creating new trajectory in a map
-		trajectories[min_idx] = new_trajectory;
-
-		//removing old unnecessary timestamps from map
-		outer_timestamps_iter = timestamps.find(min_idx);
-		if (outer_timestamps_iter != timestamps.end())
-			timestamps.erase(outer_timestamps_iter);
-		outer_timestamps_iter = timestamps.find(max_idx);
-		if (outer_timestamps_iter != timestamps.end())
-			timestamps.erase(outer_timestamps_iter);
-
-		//creating new timestampin a map
-		timestamps[min_idx] = new_timestamp;
-
-		std::replace(assignments.begin(), assignments.end(), max_idx, min_idx);
-		std::replace(target_indexes.begin(), target_indexes.end(), max_idx, min_idx);
-
-	}
-}//END of Perform Track Connecting
+}
 
 void KalmanFilterExperimental::PerformEstimation(int image_idx,
 	std::map<int, Eigen::VectorXf> &targets,
 	const std::vector<Eigen::VectorXf> &detections)
-
 {
 	std::cout << "kalman filter: image#" << image_idx << std::endl;
 
 	int n_max_dim = 0; // max size between targets and detections
 	CostInt max_cost = 0;
-	Real dt = 1;// in ms
+	Real dt = 1;// in ms==image
 
 	Eigen::MatrixXf I = Eigen::MatrixXf::Identity(kNumOfStateVars, kNumOfStateVars);
 	Eigen::MatrixXf A = Eigen::MatrixXf::Zero(kNumOfStateVars, kNumOfStateVars);
@@ -602,7 +224,7 @@ void KalmanFilterExperimental::PerformEstimation(int image_idx,
 		PerformDataAssociation(targets, detections, n_max_dim, target_indexes, cost_matrix, assignments, costs);
 		UnassignUnrealisticTargets(targets, detections, n_max_dim, assignments, costs);
 		ComputePosteriorEstimate(targets, detections, P_estimate, K, H, assignments, target_indexes);
-		RemoveRecapturedTargetsFromStrikes(targets, assignments, target_indexes);
+		RemoveRecapturedTargetsFromUnmatched(targets, assignments, target_indexes);
 		AddNewTargets(targets, detections, assignments);
 		MarkLostTargetsAsUnmatched(targets, assignments, target_indexes);
 	}
@@ -616,10 +238,165 @@ void KalmanFilterExperimental::PerformEstimation(int image_idx,
 
 	SaveTargets(kalman_filter_output_file_, image_idx, targets);
 	SaveTargetsMatlab(kalman_filter_matlab_output_file_, image_idx, targets);
-	SaveImages(image_idx, targets);
+	//  SaveImages(image_idx, targets);
 
 	std::cout << "number of overall targets taken part: " << max_target_index_ + 1 << "; number of current targets: "
 		<< targets.size() << std::endl;
+}
+
+void KalmanFilterExperimental::PerformTrackLinking(std::map<int, std::vector<Eigen::VectorXf>> &trajectories,
+	std::map<int, std::vector<int>> &timestamps)
+{
+	int counter = 0;
+	const int delta = 2;
+	const int tau = 2;
+	int n_max_dim = 0;
+	double max_elem = 0;
+	std::cout << "trajectory linking started" << std::endl;
+
+	n_max_dim = (int)trajectories.size();
+	std::vector<int> target_indexes;
+	std::vector<std::vector<CostInt>> cost_matrix(n_max_dim, std::vector<CostInt>(n_max_dim, 0));
+
+	std::map<int, std::vector<Eigen::VectorXf>>::iterator iter_trj_outer = trajectories.begin();
+	for (; iter_trj_outer != trajectories.end(); ++iter_trj_outer)
+	{
+		std::cout << "outer_trajectory #" << iter_trj_outer->first << std::endl;
+		std::map<int, std::vector<Eigen::VectorXf>>::iterator iter_trj_inner = trajectories.begin();
+		for (; iter_trj_inner != trajectories.end(); ++iter_trj_inner)
+		{
+			int first_trj_idx = iter_trj_outer->first;
+			int second_trj_idx = iter_trj_inner->first;
+
+			int Ti_e = timestamps[first_trj_idx][timestamps[first_trj_idx].size() - 1];
+			int Tj_b = timestamps[second_trj_idx][0];
+
+			// EXCLUDING trajectories with length < tau + 1
+			if ((iter_trj_outer->second.size() <= tau) || (iter_trj_inner->second.size() <= tau))
+			{
+				cost_matrix[iter_trj_outer->first][iter_trj_inner->first] = -1; // TODO: make sure the indexing is correct
+				continue;
+			}
+
+			if (iter_trj_inner->first == iter_trj_outer->first)
+			{
+				cost_matrix[iter_trj_outer->first][iter_trj_inner->first] = -1;
+				continue; // TODO: is it required?
+			}
+
+			// if trajectories do not intersect
+			if ((Tj_b - Ti_e >= 1) && (Tj_b - Ti_e <= delta))
+			{
+				int s = Tj_b - Ti_e;
+
+				Real v_t_x_outer = iter_trj_outer->second[iter_trj_outer->second.size() - 1](0)
+					- iter_trj_outer->second[iter_trj_outer->second.size() - 2](0);
+				Real v_t_y_outer = iter_trj_outer->second[iter_trj_outer->second.size() - 1](1)
+					- iter_trj_outer->second[iter_trj_outer->second.size() - 2](1);
+				Real v_t_x_inner = iter_trj_inner->second[1](0) - (iter_trj_inner->second[0](0));
+				Real v_t_y_inner = iter_trj_inner->second[1](1) - (iter_trj_inner->second[0](1));
+
+				std::vector<std::vector<Real>> outer_vect;
+				std::vector<std::vector<Real>> inner_vect;
+
+				// building continuation of outer trajectory
+				Real continued_trj_x = iter_trj_outer->second[iter_trj_outer->second.size() - 1](0);
+				Real continued_trj_y = iter_trj_outer->second[iter_trj_outer->second.size() - 1](1);
+				for (int continuation_time = 0; continuation_time <= s; ++continuation_time)
+				{
+					if (continuation_time == 0) // push the last element of outer trajectory
+					{
+						std::vector<Real> continued_trj{ continued_trj_x, continued_trj_y };
+						outer_vect.push_back(continued_trj);
+					}
+					else // push other elements
+					{
+						continued_trj_x += v_t_x_outer;
+						continued_trj_y += v_t_y_outer;
+
+						std::vector<Real> continued_trj{ continued_trj_x, continued_trj_y };
+						outer_vect.push_back(continued_trj);
+					}
+				}
+
+				// building beginning of inner trajectory
+				continued_trj_x = iter_trj_inner->second[0](0);
+				continued_trj_y = iter_trj_inner->second[0](1);
+				for (int continuation_time = 0; continuation_time <= s; ++continuation_time)
+				{
+					if (continuation_time == 0) // push the first element of inner trajectory
+					{
+						std::vector<Real> continued_trj{ continued_trj_x, continued_trj_y };
+						inner_vect.push_back(continued_trj);
+					}
+					else // push other elements
+					{
+						continued_trj_x -= v_t_x_inner;
+						continued_trj_y -= v_t_y_inner;
+
+						std::vector<Real> continued_trj{ continued_trj_x, continued_trj_y };
+						inner_vect.push_back(continued_trj);
+					}
+				}
+				std::reverse(inner_vect.begin(), inner_vect.end());
+
+				double res = 0;
+				for (int continuation_time = 0; continuation_time <= s; ++continuation_time)
+				{
+					res += std::sqrt(std::pow((outer_vect[continuation_time][0] - inner_vect[continuation_time][0]), 2) +
+						std::pow((outer_vect[continuation_time][1] - inner_vect[continuation_time][1]), 2));
+				}
+				cost_matrix[first_trj_idx][second_trj_idx] = CostInt(res / (s + 1) * costs_order_of_magnitude_);
+
+				if (max_elem < cost_matrix[first_trj_idx][second_trj_idx])
+				{
+					max_elem = cost_matrix[first_trj_idx][second_trj_idx];
+				}
+			}
+			// if trajectories intersect
+			if ((Ti_e - Tj_b >= 0) && (Ti_e - Tj_b <= tau))
+			{
+				double res = 0;
+				int s = Ti_e - Tj_b;
+
+				for (int intersection_time = 0; intersection_time <= s; ++intersection_time)
+				{
+					res +=
+						std::sqrt(std::pow((iter_trj_outer->second[iter_trj_outer->second.size() - 1 - s + intersection_time](0)
+							- iter_trj_inner->second[intersection_time](0)), 2) +
+							std::pow((iter_trj_outer->second[iter_trj_outer->second.size() - 1 - s + intersection_time](1)
+								- iter_trj_inner->second[intersection_time](1)), 2));
+				}
+				cost_matrix[first_trj_idx][second_trj_idx] = CostInt(res / (s + 1) * costs_order_of_magnitude_);
+
+				if (max_elem < cost_matrix[first_trj_idx][second_trj_idx])
+				{
+					max_elem = cost_matrix[first_trj_idx][second_trj_idx];
+				}
+			}
+			else
+			{
+				cost_matrix[iter_trj_outer->first][iter_trj_inner->first] = -1;
+			}
+
+		} // iter_trj_inner
+	} // iter_trj_outer
+
+	InitializeCostMatrixForTrackLinking(trajectories, timestamps, max_elem, cost_matrix, target_indexes);
+
+	std::vector<int> assignments(n_max_dim, -1);
+	std::vector<CostInt> costs(n_max_dim, -1);
+	PerformDataAssociationForTrackLinking(trajectories,
+		timestamps,
+		max_elem,
+		target_indexes,
+		cost_matrix,
+		assignments,
+		costs);
+	PerformTrackConnecting(trajectories, timestamps, target_indexes, assignments, costs, delta, tau);
+
+	SaveTrajectories(track_linking_output_file_, trajectories, timestamps);
+	SaveTrajectoriesMatlab(track_linking_matlab_output_file_, trajectories, timestamps);
 }
 
 void KalmanFilterExperimental::ComputePriorEstimate(std::map<int, Eigen::VectorXf> &targets,
@@ -750,7 +527,7 @@ void KalmanFilterExperimental::MarkLostTargetsAsUnmatched(std::map<int, Eigen::V
 	//  }
 }
 
-void KalmanFilterExperimental::RemoveRecapturedTargetsFromStrikes(std::map<int, Eigen::VectorXf> &targets,
+void KalmanFilterExperimental::RemoveRecapturedTargetsFromUnmatched(std::map<int, Eigen::VectorXf> &targets,
 	const std::vector<int> &assignments,
 	const std::vector<int> &target_indexes)
 {
@@ -798,91 +575,8 @@ void KalmanFilterExperimental::AddNewTargets(std::map<int, Eigen::VectorXf> &tar
 		sorted_assignments.begin(),
 		sorted_assignments.end(),
 		std::back_inserter(indexes_to_unassigned_detections)); // set_difference requires pre-sorted containers
-															   //  // for each new detection, divide its contour if there exists significant convexity defect
-															   //
-															   //  std::vector<Eigen::VectorXf> additional_detections;
-															   //  image_processing_engine_.ProcessAdditionalDetections(indexes_to_unassigned_detections,
-															   //                                                       additional_detections,
-															   //                                                       detections);
-															   //  std::map<int, Eigen::VectorXf> terminated_targets;
-															   //  for (int i = 0; i < target_indexes.size(); ++i)
-															   //  {
-															   //    if (assignments[i] == -1)
-															   //    {
-															   //      terminated_targets[target_indexes[i]] = targets.find(target_indexes[i])->second;
-															   //    }
-															   //  }
-															   //
-															   ////	if (/* DISABLES CODE */ (false))
-															   ////	if ((terminated_targets.size() != 0) && (additional_detections.size() != 0))
-															   //  {
-															   //    n_max_dim = (int) std::max(terminated_targets.size(), additional_detections.size());
-															   //    cost_matrix = std::vector<std::vector<CostInt>>(n_max_dim, std::vector<CostInt>(n_max_dim, 0));
-															   //    std::vector<int> additional_target_indexes;
-															   //    std::vector<int> additional_assignments(n_max_dim, -1);
-															   //    std::vector<CostInt> additional_costs(n_max_dim);
-															   //    max_cost = InitializeSecondaryCostMatrix(terminated_targets,
-															   //                                             additional_detections,
-															   //                                             cost_matrix,
-															   //                                             additional_target_indexes);
-															   //    HungarianAlgorithm additional_hungarian_algorithm(n_max_dim, cost_matrix);
-															   //    additional_hungarian_algorithm.Start(additional_assignments, additional_costs);
-															   //    std::for_each(additional_costs.begin(),
-															   //                  additional_costs.end(),
-															   //                  [&](CostInt &c) { c = CostInt(Real(max_cost - c) * costs_order_of_magnitude_); });
-															   //    for (int i = 0; i < terminated_targets.size(); ++i)
-															   //    {
-															   //      if (additional_costs[i] > parameter_handler_.GetSecondaryDataAssociationCost()
-															   //          || additional_assignments[i] >= additional_detections.size())
-															   //      {
-															   //        additional_assignments[i] = -1;
-															   //      }
-															   //    }
-															   //    for (int i = (int) terminated_targets.size(); i < n_max_dim; ++i)
-															   //    {
-															   //      additional_assignments[i] = -1;
-															   //    }
-															   //    // POSTERIOR ESTIMATE OF DOUBLE-SHAPED BACTERIA
-															   //    for (int i = 0; i < terminated_targets.size(); ++i)
-															   //    {
-															   //      if (additional_assignments[i] != -1)
-															   //      {
-															   //        x_i_estimate = terminated_targets[additional_target_indexes[i]].head(kNumOfStateVars);
-															   //        z_i = additional_detections[additional_assignments[i]].head(2);
-															   //        x_i_estimate = x_i_estimate + K * (z_i - H * x_i_estimate);
-															   //        targets[additional_target_indexes[i]].head(kNumOfStateVars) = x_i_estimate;
-															   //
-															   //        targets[additional_target_indexes[i]][4] = additional_detections[additional_assignments[i]][4];
-															   //        targets[additional_target_indexes[i]][5] = additional_detections[additional_assignments[i]][5];
-															   //        targets[additional_target_indexes[i]][6] = additional_detections[additional_assignments[i]][6];
-															   //        targets[additional_target_indexes[i]][7] = additional_detections[additional_assignments[i]][7];
-															   //
-															   //        if (unmatched_.find(additional_target_indexes[i]) != unmatched_.end())
-															   //        {
-															   //          unmatched_.erase(additional_target_indexes[i]); // stop suspecting a target if it has been recovered
-															   //        }
-															   //      }
-															   //    }
-
-															   // add the newly found trackings
-															   //	for (int i = 0; i < new_trackings.size(); ++i)
-															   //	{
-															   //		x[std::prev(x.end())->first + 1] = d[new_trackings[i]];
-															   //	}
-															   //    indexes_to_unassigned_detections.clear();
-															   //    all_detection_indexes = std::vector<int>(additional_detections.size());
-															   //    std::iota(all_detection_indexes.begin(), all_detection_indexes.end(), 0);
-															   //    sorted_assignments = std::vector<int>(additional_assignments.begin(), additional_assignments.end());
-															   //    std::sort(sorted_assignments.begin(), sorted_assignments.end());
-															   //    std::set_difference(all_detection_indexes.begin(),
-															   //                        all_detection_indexes.end(),
-															   //                        sorted_assignments.begin(),
-															   //                        sorted_assignments.end(),
-															   //                        std::back_inserter(indexes_to_unassigned_detections));
-															   // consider detections, left after second segmentation, as new targets
 	for (int i = 0; i < indexes_to_unassigned_detections.size(); ++i)
 	{
-		//      targets[std::prev(targets.end())->first + 1] = additional_detections[indexes_to_unassigned_detections[i]]; // TODO: UNCOMMENT FOR SECONDARY DATA ASSOCIATION
 		targets[max_target_index_ + 1] = detections[indexes_to_unassigned_detections[i]];
 		++max_target_index_;
 	}
@@ -923,6 +617,302 @@ void KalmanFilterExperimental::CorrectForOrientationUniqueness(std::map<int, Eig
 	}
 }
 
+void KalmanFilterExperimental::PerformDataAssociationForTrackLinking(
+	std::map<int, std::vector<Eigen::VectorXf>> &trajectories,
+	std::map<int, std::vector<int>> &timestamps,
+	double &max_elem,
+	std::vector<int> &target_indexes,
+	std::vector<std::vector<CostInt>> &cost_matrix,
+	std::vector<int> &assignments,
+	std::vector<CostInt> &costs)
+{
+	std::cout << "data association for track linking" << std::endl;
+	CostInt max_cost = max_elem;
+	HungarianAlgorithm hungarian_algorithm(target_indexes.size(), cost_matrix);
+	hungarian_algorithm.Start(assignments, costs);
+	std::for_each(costs.begin(),
+		costs.end(),
+		[&](CostInt &c)
+	{
+		c = CostInt((max_cost - c) / costs_order_of_magnitude_);
+	});
+}
+
+void KalmanFilterExperimental::PerformTrackConnecting(std::map<int, std::vector<Eigen::VectorXf>> &trajectories,
+	std::map<int, std::vector<int>> &timestamps,
+	std::vector<int> &target_indexes,
+	std::vector<int> &assignments,
+	std::vector<CostInt> &costs,
+	int delta,
+	int tau)
+{
+	std::cout << "unification of tracklings" << std::endl;
+	int max_allowed_distance = 15 * std::min(delta, tau);
+
+	// check the distance
+	for (int i = 0; i < costs.size(); ++i)
+	{
+		if (costs[i] > max_allowed_distance)
+		{
+			continue;
+		}
+
+		int min_idx = std::min(target_indexes[i], assignments[i]);
+		int max_idx = std::max(target_indexes[i], assignments[i]);
+
+		std::map<int, std::vector<Eigen::VectorXf>>::iterator outer_trajectory_iter;
+		std::map<int, std::vector<Eigen::VectorXf>>::iterator inner_trajectory_iter;
+		std::map<int, std::vector<int>>::iterator outer_timestamps_iter;
+		std::map<int, std::vector<int>>::iterator inner_timestamps_iter;
+
+		std::vector<int> trial;
+
+		outer_trajectory_iter = trajectories.find(min_idx);
+		inner_trajectory_iter = trajectories.find(max_idx);
+		outer_timestamps_iter = timestamps.find(min_idx);
+		inner_timestamps_iter = timestamps.find(max_idx);
+
+		int first_trj_idx = outer_trajectory_iter->first;
+		int second_trj_idx = inner_trajectory_iter->first;
+
+		int Ti_e = timestamps[first_trj_idx][timestamps[first_trj_idx].size() - 1];
+		int Tj_b = timestamps[second_trj_idx][0];
+
+		int Ti_b = timestamps[first_trj_idx][0];
+		int Tj_e = timestamps[second_trj_idx][timestamps[second_trj_idx].size() - 1];
+
+		int s = 0;
+
+		// TODO: whether trajectories intersect; whether trajectories time-lapsed
+
+		if (Ti_e - Tj_b >= 0 && Ti_e - Tj_b <= tau)
+		{
+			s = Ti_e - Tj_b; // trajectories intersect Ti goes BEFORE Tj
+		}
+
+		if (Tj_e - Ti_b >= 0 && Tj_e - Ti_b <= tau)
+		{
+			s = Tj_e - Ti_b; // trajectories intersect Ti goes AFTER Tj
+			outer_trajectory_iter = trajectories.find(max_idx);
+			inner_trajectory_iter = trajectories.find(min_idx);
+			outer_timestamps_iter = timestamps.find(max_idx);
+			inner_timestamps_iter = timestamps.find(min_idx);
+		}
+
+		if (Tj_b - Ti_e > 0 && Tj_b - Ti_e <= delta)
+		{
+			s = Tj_b - Ti_e; // trajectories NOT intersect Ti goes BEFORE Tj
+
+			/// HERE perform continuation of trajectories
+
+			Real v_t_x_outer = outer_trajectory_iter->second[outer_trajectory_iter->second.size() - 1](0)
+				- outer_trajectory_iter->second[outer_trajectory_iter->second.size() - 2](0);
+			Real v_t_y_outer = outer_trajectory_iter->second[outer_trajectory_iter->second.size() - 1](1)
+				- outer_trajectory_iter->second[outer_trajectory_iter->second.size() - 2](1);
+
+			Real v_t_x_inner = inner_trajectory_iter->second[1](0) - (inner_trajectory_iter->second[0](0));
+			Real v_t_y_inner = inner_trajectory_iter->second[1](1) - (inner_trajectory_iter->second[0](1));
+
+			// building continuation of outer trajectory
+			Real continued_trj_x = outer_trajectory_iter->second[outer_trajectory_iter->second.size() - 1](0);
+			Real continued_trj_y = outer_trajectory_iter->second[outer_trajectory_iter->second.size() - 1](1);
+			for (int continuation_time = 0; continuation_time <= s; ++continuation_time)
+			{
+				if (continuation_time == 0) // It's the last element of outer trajectory
+				{
+					continue;// just skip it
+				}
+				else // push other elements
+				{
+					Eigen::VectorXf new_outer_point;
+					continued_trj_x += v_t_x_outer;
+					continued_trj_y += v_t_y_outer;
+					new_outer_point <<
+						continued_trj_x,
+						continued_trj_y,
+						v_t_x_outer,
+						v_t_y_outer,
+						outer_trajectory_iter->second[outer_trajectory_iter->second.size() - 1](4),
+						outer_trajectory_iter->second[outer_trajectory_iter->second.size() - 1](5),
+						outer_trajectory_iter->second[outer_trajectory_iter->second.size() - 1](6),
+						outer_trajectory_iter->second[outer_trajectory_iter->second.size() - 1](7);
+
+					outer_trajectory_iter->second.push_back(new_outer_point);
+					outer_timestamps_iter->second.push_back(outer_timestamps_iter->second[outer_timestamps_iter->second.size() - 1] + 1);
+				}
+			}
+
+			// building beginning of inner trajectory
+			continued_trj_x = inner_trajectory_iter->second[0](0);
+			continued_trj_y = inner_trajectory_iter->second[0](1);
+			for (int continuation_time = 0; continuation_time <= s; ++continuation_time)
+			{
+				if (continuation_time == 0) // It's the first element of inner trajectory
+				{
+					continue;// just skip it
+				}
+				else // push other elements
+				{
+					Eigen::VectorXf new_inner_point;
+					continued_trj_x -= v_t_x_inner;
+					continued_trj_y -= v_t_y_inner;
+					new_inner_point <<
+						continued_trj_x,
+						continued_trj_y,
+						v_t_x_inner,
+						v_t_y_inner,
+						inner_trajectory_iter->second[0](4),
+						inner_trajectory_iter->second[0](5),
+						inner_trajectory_iter->second[0](6),
+						inner_trajectory_iter->second[0](7);
+
+					inner_trajectory_iter->second.insert(inner_trajectory_iter->second.begin(), new_inner_point);
+					inner_timestamps_iter->second.insert(inner_timestamps_iter->second.begin(), inner_timestamps_iter->second[0] - 1);
+				}
+			}
+		}
+
+		if (Ti_b - Tj_e > 0 && Tj_e - Ti_b <= delta)
+		{
+			s = Ti_b - Tj_e; // trajectories NOT intersect Ti goes AFTER Tj
+			outer_trajectory_iter = trajectories.find(max_idx);
+			inner_trajectory_iter = trajectories.find(min_idx);
+			outer_timestamps_iter = timestamps.find(max_idx);
+			inner_timestamps_iter = timestamps.find(min_idx);
+
+			/// HERE perform continuation of trajectories
+
+			Real v_t_x_outer = outer_trajectory_iter->second[outer_trajectory_iter->second.size() - 1](0)
+				- outer_trajectory_iter->second[outer_trajectory_iter->second.size() - 2](0);
+			Real v_t_y_outer = outer_trajectory_iter->second[outer_trajectory_iter->second.size() - 1](1)
+				- outer_trajectory_iter->second[outer_trajectory_iter->second.size() - 2](1);
+
+			Real v_t_x_inner = inner_trajectory_iter->second[1](0) - (inner_trajectory_iter->second[0](0));
+			Real v_t_y_inner = inner_trajectory_iter->second[1](1) - (inner_trajectory_iter->second[0](1));
+
+			// building continuation of outer trajectory
+			Real continued_trj_x = outer_trajectory_iter->second[outer_trajectory_iter->second.size() - 1](0);
+			Real continued_trj_y = outer_trajectory_iter->second[outer_trajectory_iter->second.size() - 1](1);
+			for (int continuation_time = 0; continuation_time <= s; ++continuation_time)
+			{
+				if (continuation_time == 0) // It's the last element of outer trajectory
+				{
+					continue;// just skip it
+				}
+				else // push other elements
+				{
+					Eigen::VectorXf new_outer_point;
+					continued_trj_x += v_t_x_outer;
+					continued_trj_y += v_t_y_outer;
+					new_outer_point <<
+						continued_trj_x,
+						continued_trj_y,
+						v_t_x_outer,
+						v_t_y_outer,
+						outer_trajectory_iter->second[outer_trajectory_iter->second.size() - 1](4),
+						outer_trajectory_iter->second[outer_trajectory_iter->second.size() - 1](5),
+						outer_trajectory_iter->second[outer_trajectory_iter->second.size() - 1](6),
+						outer_trajectory_iter->second[outer_trajectory_iter->second.size() - 1](7);
+
+					outer_trajectory_iter->second.push_back(new_outer_point);
+					outer_timestamps_iter->second.push_back(outer_timestamps_iter->second[outer_timestamps_iter->second.size() - 1] + 1);
+				}
+			}
+
+			// building beginning of inner trajectory
+			continued_trj_x = inner_trajectory_iter->second[0](0);
+			continued_trj_y = inner_trajectory_iter->second[0](1);
+			for (int continuation_time = 0; continuation_time <= s; ++continuation_time)
+			{
+				if (continuation_time == 0) // It's the first element of inner trajectory
+				{
+					continue;// just skip it
+				}
+				else // push other elements
+				{
+					Eigen::VectorXf new_inner_point;
+					continued_trj_x -= v_t_x_inner;
+					continued_trj_y -= v_t_y_inner;
+					new_inner_point <<
+						continued_trj_x,
+						continued_trj_y,
+						v_t_x_inner,
+						v_t_y_inner,
+						inner_trajectory_iter->second[0](4),
+						inner_trajectory_iter->second[0](5),
+						inner_trajectory_iter->second[0](6),
+						inner_trajectory_iter->second[0](7);
+
+					inner_trajectory_iter->second.insert(inner_trajectory_iter->second.begin(), new_inner_point);
+					inner_timestamps_iter->second.insert(inner_timestamps_iter->second.begin(), inner_timestamps_iter->second[0] - 1);
+				}
+			}
+		}
+
+		// creating new trajectory by connecting previous two
+		std::vector<Eigen::VectorXf> new_trajectory;
+		std::vector<int> new_timestamp;
+		for (int pre_intersection_time = 0; pre_intersection_time < outer_trajectory_iter->second.size() - 1 - s;
+			++pre_intersection_time)
+		{
+			new_trajectory.push_back(outer_trajectory_iter->second[pre_intersection_time]);
+			new_timestamp.push_back(outer_timestamps_iter->second[pre_intersection_time]);
+		} // pre_intersection_time
+
+		for (int intersection_time = 0; intersection_time <= s; ++intersection_time)
+		{
+			Eigen::VectorXf new_trajectory_part(kNumOfExtractedFeatures);
+			for (int state_element = 0; state_element < kNumOfExtractedFeatures; ++state_element)
+			{
+				new_trajectory_part(state_element) =
+					(outer_trajectory_iter->second[outer_trajectory_iter->second.size() - 1 - s + intersection_time](
+						state_element) + inner_trajectory_iter->second[intersection_time](state_element)) / 2;
+			}
+			new_trajectory.push_back(new_trajectory_part);
+			new_timestamp.push_back(outer_timestamps_iter->second[
+				outer_trajectory_iter->second.size() - 1 - s + intersection_time]);
+		} // intersection_time
+
+		for (int post_intersection_time = s + 1; post_intersection_time < inner_trajectory_iter->second.size();
+			++post_intersection_time)
+		{
+			new_trajectory.push_back(inner_trajectory_iter->second[post_intersection_time]);
+			new_timestamp.push_back(inner_timestamps_iter->second[post_intersection_time]);
+		} // post_intersection_time
+
+		// removing old unnecessary trajectories from map
+		outer_trajectory_iter = trajectories.find(min_idx);
+		if (outer_trajectory_iter != trajectories.end())
+		{
+			trajectories.erase(outer_trajectory_iter);
+		}
+		outer_trajectory_iter = trajectories.find(max_idx);
+		if (outer_trajectory_iter != trajectories.end())
+		{
+			trajectories.erase(outer_trajectory_iter);
+		}
+		// creating new trajectory in a map
+		trajectories[min_idx] = new_trajectory;
+
+		// removing old unnecessary timestamps from map
+		outer_timestamps_iter = timestamps.find(min_idx);
+		if (outer_timestamps_iter != timestamps.end())
+		{
+			timestamps.erase(outer_timestamps_iter);
+		}
+		outer_timestamps_iter = timestamps.find(max_idx);
+		if (outer_timestamps_iter != timestamps.end())
+		{
+			timestamps.erase(outer_timestamps_iter);
+		}
+		// creating new timestampin a map
+		timestamps[min_idx] = new_timestamp;
+
+		std::replace(assignments.begin(), assignments.end(), max_idx, min_idx);
+		std::replace(target_indexes.begin(), target_indexes.end(), max_idx, min_idx);
+	} // i
+}
+
 void KalmanFilterExperimental::SaveTargets(std::ofstream &file,
 	int image_idx,
 	const std::map<int, Eigen::VectorXf> &targets)
@@ -951,16 +941,14 @@ void KalmanFilterExperimental::SaveTargetsMatlab(std::ofstream &file,
 	}
 }
 
-//
-// Created by Stanislav Stepaniuk on 27.08.18 
-//
-// Saving trajectories
 void KalmanFilterExperimental::SaveTrajectories(std::ofstream &file,
-	std::map<int, std::vector<Eigen::VectorXf>> &trajectories)
+	std::map<int, std::vector<Eigen::VectorXf>> &trajectories,
+	std::map<int, std::vector<int>> &timestamps)
 {
-
+	// TODO: save time-points and number of targets per time-point
 	std::map<int, std::vector<Eigen::VectorXf>>::iterator it = trajectories.begin();
-	for (it; it != trajectories.end(); ++it)
+	std::map<int, std::vector<int>>::iterator time = timestamps.begin();
+	for (; it != trajectories.end(); ++it)
 	{
 		file << it->first << " ";
 		for (int i = 0; i < trajectories[it->first].size(); ++i)
@@ -976,22 +964,22 @@ void KalmanFilterExperimental::SaveTrajectories(std::ofstream &file,
 		}
 		file << std::endl;
 	}
-}//END of Saving trajectories
+}
 
- //
- // Created by Stanislav Stepaniuk on 27.08.18 
- //
- // Saving trajectories for Matlab
 void KalmanFilterExperimental::SaveTrajectoriesMatlab(std::ofstream &file,
-	std::map<int, std::vector<Eigen::VectorXf>> &trajectories)
+	std::map<int, std::vector<Eigen::VectorXf>> &trajectories,
+	std::map<int, std::vector<int>> &timestamps)
 {
-
+	// TODO: save time-points and number of targets per time-point
 	std::map<int, std::vector<Eigen::VectorXf>>::iterator it = trajectories.begin();
-	for (it; it != trajectories.end(); ++it)
+	std::map<int, std::vector<int>>::iterator time = timestamps.begin();
+	for (; it != trajectories.end(); ++it)
 	{
 		for (int i = 0; i < trajectories[it->first].size(); ++i)
 		{
-			file << it->first << " "
+			file
+				//<< time->second[i] << " "  // it doesn't work ;(
+				<< it->first << " "
 				<< it->second[i](0) << " "
 				<< it->second[i](1) << " "
 				<< it->second[i](2) << " "
@@ -1002,13 +990,12 @@ void KalmanFilterExperimental::SaveTrajectoriesMatlab(std::ofstream &file,
 				<< it->second[i](7) << std::endl;
 		}
 	}
-}//END of Saving trajectories for Matlab
-
+}
 
 void KalmanFilterExperimental::SaveImages(int image_idx, const std::map<int, Eigen::VectorXf> &targets)
 {
 	cv::Mat image;
-	image = image_processing_engine_.GetSourceImage(image_idx);
+	image = image_processing_engine_.GetSourceImage();
 
 	Eigen::VectorXf x_i;
 	cv::Point2f center;
@@ -1025,7 +1012,8 @@ void KalmanFilterExperimental::SaveImages(int image_idx, const std::map<int, Eig
 		length = std::max(x_i(6), x_i(7));
 		cv::line(image,
 			center,
-			center + cv::Point2f(std::cosf(x_i(5)), std::sinf(x_i(5))) * length / 2.0f,
+			center + cv::Point2f(x_i(2),
+				x_i(2)),//center + cv::Point2f(std::cosf(x_i(5)), std::sinf(x_i(5))) * length / 2.0f,
 			cv::Scalar(255, 0, 0));
 		//		std::cout << "(" << center.x << "," << center.y << ") -> (" << center.x + std::cosf(x_i(5)) * x_i(4) / 10.0f << "," << center.y + std::sinf(x_i(5)) * x_i(4) / 10.0f << ")" << std::endl;
 	}
@@ -1096,61 +1084,41 @@ CostInt KalmanFilterExperimental::InitializeCostMatrix(const std::map<int, Eigen
 	return CostInt(max_cost * costs_order_of_magnitude_);
 }
 
-CostInt KalmanFilterExperimental::InitializeSecondaryCostMatrix(const std::map<int, Eigen::VectorXf> &targets,
-	const std::vector<Eigen::VectorXf> &detections,
+CostInt KalmanFilterExperimental::InitializeCostMatrixForTrackLinking(std::map<int,
+	std::vector<Eigen::VectorXf>> &trajectories,
+	std::map<int, std::vector<int>> &timestamps,
+	double &max_elem,
 	std::vector<std::vector<CostInt>> &cost_matrix,
 	std::vector<int> &target_indexes)
 {
+	std::cout << "cost matrix initialization for track linking" << std::endl;
 	target_indexes.clear();
 
-	Eigen::VectorXf target(kNumOfExtractedFeatures);
-	Eigen::VectorXf detection(kNumOfExtractedFeatures);
-	Real cost = 0.0;
-	Real max_cost = 0;
-	int i = 0;
-	Real d_x = 0.0, d_y = 0.0;
-	Real dist = 0.0;
-	Real max_dist = Real(std::sqrt(parameter_handler_.GetSubimageXSize() * parameter_handler_.GetSubimageXSize()
-		+ parameter_handler_.GetSubimageYSize() * parameter_handler_.GetSubimageYSize()));
-	for (std::map<int, Eigen::VectorXf>::const_iterator it = targets.begin(); it != targets.end(); ++it, ++i)
+	std::map<int, std::vector<Eigen::VectorXf>>::iterator iter_trj_outer = trajectories.begin();
+	for (; iter_trj_outer != trajectories.end(); ++iter_trj_outer)
 	{
-		target_indexes.push_back(it->first);
-		target = it->second;
-
-		for (int j = 0; j < detections.size(); ++j)
+		target_indexes.push_back(iter_trj_outer->first);
+		std::map<int, std::vector<Eigen::VectorXf>>::iterator iter_trj_inner = trajectories.begin();
+		for (; iter_trj_inner != trajectories.end(); ++iter_trj_inner)
 		{
-			detection = detections[j];
+			int first_trj_idx = iter_trj_outer->first;
+			int second_trj_idx = iter_trj_inner->first;
 
-			d_x = (target(0) - detection(0));
-			d_y = (target(1) - detection(1));
-
-			// put only close assignment costs in the cost matrix
-			dist = std::sqrt(d_x * d_x + d_y * d_y);
-			if (dist <= parameter_handler_.GetDataAssociationCost())
+			if (cost_matrix[first_trj_idx][second_trj_idx] < 0)
 			{
-				cost = dist; // Euclidean norm from a target to a detection
+				cost_matrix[first_trj_idx][second_trj_idx] = CostInt(max_elem);
 			}
-			else
-			{
-				cost = max_dist;
-			}
-
-			cost_matrix[i][j] = CostInt(cost * costs_order_of_magnitude_);
-			if (max_cost < cost)
-			{
-				max_cost = cost;
-			}
-		}
-	}
+		} // iter_trj_inner
+	} // iter_trj_outer
 
 	// turn min cost problem into max cost problem
-	for (int i = 0; i < targets.size(); ++i)
+	for (int i = 0; i < cost_matrix.size(); ++i)
 	{
-		for (int j = 0; j < detections.size(); ++j)
+		for (int j = 0; j < cost_matrix.size(); ++j)
 		{
-			cost_matrix[i][j] = CostInt(max_cost * costs_order_of_magnitude_) - cost_matrix[i][j];
+			cost_matrix[i][j] = CostInt(max_elem) - cost_matrix[i][j];
 		}
 	}
 
-	return CostInt(max_cost);
+	return CostInt(max_elem);
 }
