@@ -704,7 +704,7 @@ void KalmanFilterExperimental::PerformTrackConnecting(std::map<int, std::vector<
 			s = Tj_b - Ti_e; // trajectories NOT intersect Ti goes BEFORE Tj
 
 			/// HERE perform continuation of trajectories
-
+			
 			Real v_t_x_outer = outer_trajectory_iter->second[outer_trajectory_iter->second.size() - 1](0)
 				- outer_trajectory_iter->second[outer_trajectory_iter->second.size() - 2](0);
 			Real v_t_y_outer = outer_trajectory_iter->second[outer_trajectory_iter->second.size() - 1](1)
@@ -738,7 +738,7 @@ void KalmanFilterExperimental::PerformTrackConnecting(std::map<int, std::vector<
 						outer_trajectory_iter->second[outer_trajectory_iter->second.size() - 1](7);
 
 					outer_trajectory_iter->second.push_back(new_outer_point);
-					outer_timestamps_iter->second.push_back(outer_timestamps_iter->second[outer_timestamps_iter->second.size() - 1] + 1);
+					outer_timestamps_iter->second.push_back(outer_timestamps_iter->second[outer_timestamps_iter->second.size() - 1]+1);
 				}
 			}
 
@@ -848,7 +848,7 @@ void KalmanFilterExperimental::PerformTrackConnecting(std::map<int, std::vector<
 				}
 			}
 		}
-
+			   
 		// creating new trajectory by connecting previous two
 		std::vector<Eigen::VectorXf> new_trajectory;
 		std::vector<int> new_timestamp;
@@ -953,7 +953,8 @@ void KalmanFilterExperimental::SaveTrajectories(std::ofstream &file,
 		file << it->first << " ";
 		for (int i = 0; i < trajectories[it->first].size(); ++i)
 		{
-			file << it->second[i](0) << " "
+			file//<< trajectories[it->first].size()<<" "
+				<< it->second[i](0) << " "
 				<< it->second[i](1) << " "
 				<< it->second[i](2) << " "
 				<< it->second[i](3) << " "
@@ -974,11 +975,11 @@ void KalmanFilterExperimental::SaveTrajectoriesMatlab(std::ofstream &file,
 	std::map<int, std::vector<Eigen::VectorXf>>::iterator it = trajectories.begin();
 	std::map<int, std::vector<int>>::iterator time = timestamps.begin();
 	for (; it != trajectories.end(); ++it)
-	{
+	{	
 		for (int i = 0; i < trajectories[it->first].size(); ++i)
 		{
 			file
-				//<< time->second[i] << " "  // it doesn't work ;(
+				<< time->second[i] << " "  
 				<< it->first << " "
 				<< it->second[i](0) << " "
 				<< it->second[i](1) << " "
@@ -989,6 +990,7 @@ void KalmanFilterExperimental::SaveTrajectoriesMatlab(std::ofstream &file,
 				<< it->second[i](6) << " "
 				<< it->second[i](7) << std::endl;
 		}
+		++time;
 	}
 }
 
