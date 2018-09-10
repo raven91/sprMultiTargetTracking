@@ -259,11 +259,11 @@ void KalmanFilterExperimental::PerformTrackLinking(std::map<int, std::vector<Eig
 	std::vector<std::vector<CostInt>> cost_matrix(n_max_dim, std::vector<CostInt>(n_max_dim, 0));
 
 	std::map<int, std::vector<Eigen::VectorXf>>::iterator iter_trj_outer = trajectories.begin();
-	for (; iter_trj_outer != trajectories.end(); ++iter_trj_outer)
+	for (iter_trj_outer = trajectories.begin(); iter_trj_outer != trajectories.end(); ++iter_trj_outer)
 	{
 		std::cout << "outer_trajectory #" << iter_trj_outer->first << std::endl;
 		std::map<int, std::vector<Eigen::VectorXf>>::iterator iter_trj_inner = trajectories.begin();
-		for (; iter_trj_inner != trajectories.end(); ++iter_trj_inner)
+		for (iter_trj_inner = trajectories.begin(); iter_trj_inner != trajectories.end(); ++iter_trj_inner)
 		{
 			int first_trj_idx = iter_trj_outer->first;
 			int second_trj_idx = iter_trj_inner->first;
@@ -394,9 +394,36 @@ void KalmanFilterExperimental::PerformTrackLinking(std::map<int, std::vector<Eig
 		assignments,
 		costs);
 	PerformTrackConnecting(trajectories, timestamps, target_indexes, assignments, costs, delta, tau);
-
+	CheckMaps(trajectories, timestamps);
 	SaveTrajectories(track_linking_output_file_, trajectories, timestamps);
 	SaveTrajectoriesMatlab(track_linking_matlab_output_file_, trajectories, timestamps);
+}
+
+void KalmanFilterExperimental::CheckMaps(
+	std::map<int, std::vector<Eigen::VectorXf>> &trajectories,
+	std::map<int, std::vector<int>> &timestamps)
+{
+	std::map<int, std::vector<Eigen::VectorXf>>::iterator traj_it;
+	for (traj_it = trajectories.begin(); traj_it != trajectories.end();)
+	{
+		auto cur_traj_it = traj_it;
+		auto next_traj_it = ++traj_it;
+		if (next_traj_it != trajectories.end())
+		{
+			if (next_traj_it->first - cur_traj_it->first > 1)
+			{
+				std::cout << "first  key " << cur_traj_it->first << "  " << trajectories[cur_traj_it->first][0] << std::endl;
+				std::cout << "next first  key " << next_traj_it->first << "  " << trajectories[next_traj_it->first][0] << std::endl;
+				std::cout << "last first  key " << std::prev(trajectories.end())->first << "  " << trajectories[std::prev(trajectories.end())->first][0] << std::endl;
+				trajectories[cur_traj_it->first + 1] = std::prev(trajectories.end())->second;
+				std::cout << "second key " << (--next_traj_it)->first << "  " << trajectories[(--next_traj_it)->first][0] << std::endl;
+				timestamps[cur_traj_it->first + 1] = std::prev(timestamps.end())->second;
+				trajectories.erase(std::prev(trajectories.end()));
+				timestamps.erase(std::prev(timestamps.end()));
+
+			}
+		}
+	}
 }
 
 void KalmanFilterExperimental::ComputePriorEstimate(std::map<int, Eigen::VectorXf> &targets,
@@ -704,7 +731,7 @@ void KalmanFilterExperimental::PerformTrackConnecting(std::map<int, std::vector<
 			s = Tj_b - Ti_e; // trajectories NOT intersect Ti goes BEFORE Tj
 
 			/// HERE perform continuation of trajectories
-			
+
 			Real v_t_x_outer = outer_trajectory_iter->second[outer_trajectory_iter->second.size() - 1](0)
 				- outer_trajectory_iter->second[outer_trajectory_iter->second.size() - 2](0);
 			Real v_t_y_outer = outer_trajectory_iter->second[outer_trajectory_iter->second.size() - 1](1)
@@ -738,7 +765,7 @@ void KalmanFilterExperimental::PerformTrackConnecting(std::map<int, std::vector<
 						outer_trajectory_iter->second[outer_trajectory_iter->second.size() - 1](7);
 
 					outer_trajectory_iter->second.push_back(new_outer_point);
-					outer_timestamps_iter->second.push_back(outer_timestamps_iter->second[outer_timestamps_iter->second.size() - 1]+1);
+					outer_timestamps_iter->second.push_back(outer_timestamps_iter->second[outer_timestamps_iter->second.size() - 1] + 1);
 				}
 			}
 
@@ -848,7 +875,7 @@ void KalmanFilterExperimental::PerformTrackConnecting(std::map<int, std::vector<
 				}
 			}
 		}
-			   
+
 		// creating new trajectory by connecting previous two
 		std::vector<Eigen::VectorXf> new_trajectory;
 		std::vector<int> new_timestamp;
@@ -946,22 +973,44 @@ void KalmanFilterExperimental::SaveTrajectories(std::ofstream &file,
 	std::map<int, std::vector<int>> &timestamps)
 {
 	// TODO: save time-points and number of targets per time-point
-	std::map<int, std::vector<Eigen::VectorXf>>::iterator it = trajectories.begin();
+
+
+
 	std::map<int, std::vector<int>>::iterator time = timestamps.begin();
-	for (; it != trajectories.end(); ++it)
+
+	for (int i = parameter_handler_.GetFirstImage(); i <= parameter_handler_.GetLastImage(); ++i)
 	{
-		file << it->first << " ";
-		for (int i = 0; i < trajectories[it->first].size(); ++i)
+		int counter = 0;
+
+		for (time = timestamps.begin(); time != timestamps.end(); ++time)
 		{
-			file//<< trajectories[it->first].size()<<" "
-				<< it->second[i](0) << " "
-				<< it->second[i](1) << " "
-				<< it->second[i](2) << " "
-				<< it->second[i](3) << " "
-				<< it->second[i](4) << " "
-				<< it->second[i](5) << " "
-				<< it->second[i](6) << " "
-				<< it->second[i](7) << " ";
+			if (std::find(time->second.begin(), time->second.end(), i) != time->second.end())
+				++counter;
+		}
+		file
+			<< i << " "
+			<< counter << " ";
+		for (time = timestamps.begin(); time != timestamps.end(); ++time)
+		{
+			if (std::find(time->second.begin(), time->second.end(), i) != time->second.end())
+			{
+
+				auto time_it = (std::find(time->second.begin(), time->second.end(), i));
+				if (time->second.size() == trajectories[time->first].size())
+				{
+					file
+						<< time->first << " "
+						<< trajectories[time->first][std::distance(time->second.begin(), time_it)](0) << " "
+						<< trajectories[time->first][std::distance(time->second.begin(), time_it)](1) << " "
+						<< trajectories[time->first][std::distance(time->second.begin(), time_it)](2) << " "
+						<< trajectories[time->first][std::distance(time->second.begin(), time_it)](3) << " "
+						<< trajectories[time->first][std::distance(time->second.begin(), time_it)](4) << " "
+						<< trajectories[time->first][std::distance(time->second.begin(), time_it)](5) << " "
+						<< trajectories[time->first][std::distance(time->second.begin(), time_it)](6) << " "
+						<< trajectories[time->first][std::distance(time->second.begin(), time_it)](7) << " ";
+				}				
+			}
+			
 		}
 		file << std::endl;
 	}
@@ -974,12 +1023,12 @@ void KalmanFilterExperimental::SaveTrajectoriesMatlab(std::ofstream &file,
 	// TODO: save time-points and number of targets per time-point
 	std::map<int, std::vector<Eigen::VectorXf>>::iterator it = trajectories.begin();
 	std::map<int, std::vector<int>>::iterator time = timestamps.begin();
-	for (; it != trajectories.end(); ++it)
-	{	
+	for (it = trajectories.begin(); it != trajectories.end(); ++it)
+	{
 		for (int i = 0; i < trajectories[it->first].size(); ++i)
 		{
 			file
-				<< time->second[i] << " "  
+				<< time->second[i] << " "   // index of every image 
 				<< it->first << " "
 				<< it->second[i](0) << " "
 				<< it->second[i](1) << " "
@@ -1097,11 +1146,11 @@ CostInt KalmanFilterExperimental::InitializeCostMatrixForTrackLinking(std::map<i
 	target_indexes.clear();
 
 	std::map<int, std::vector<Eigen::VectorXf>>::iterator iter_trj_outer = trajectories.begin();
-	for (; iter_trj_outer != trajectories.end(); ++iter_trj_outer)
+	for (iter_trj_outer = trajectories.begin(); iter_trj_outer != trajectories.end(); ++iter_trj_outer)
 	{
 		target_indexes.push_back(iter_trj_outer->first);
 		std::map<int, std::vector<Eigen::VectorXf>>::iterator iter_trj_inner = trajectories.begin();
-		for (; iter_trj_inner != trajectories.end(); ++iter_trj_inner)
+		for (iter_trj_inner = trajectories.begin(); iter_trj_inner != trajectories.end(); ++iter_trj_inner)
 		{
 			int first_trj_idx = iter_trj_outer->first;
 			int second_trj_idx = iter_trj_inner->first;
