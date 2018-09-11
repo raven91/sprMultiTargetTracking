@@ -394,12 +394,12 @@ void KalmanFilterExperimental::PerformTrackLinking(std::map<int, std::vector<Eig
 		assignments,
 		costs);
 	PerformTrackConnecting(trajectories, timestamps, target_indexes, assignments, costs, delta, tau);
-	CheckMaps(trajectories, timestamps);
+	FillHolesInMaps(trajectories, timestamps);
 	SaveTrajectories(track_linking_output_file_, trajectories, timestamps);
 	SaveTrajectoriesMatlab(track_linking_matlab_output_file_, trajectories, timestamps);
 }
 
-void KalmanFilterExperimental::CheckMaps(
+void KalmanFilterExperimental::FillHolesInMaps(
 	std::map<int, std::vector<Eigen::VectorXf>> &trajectories,
 	std::map<int, std::vector<int>> &timestamps)
 {
@@ -412,15 +412,14 @@ void KalmanFilterExperimental::CheckMaps(
 		{
 			if (next_traj_it->first - cur_traj_it->first > 1)
 			{
-				std::cout << "first  key " << cur_traj_it->first << "  " << trajectories[cur_traj_it->first][0] << std::endl;
-				std::cout << "next first  key " << next_traj_it->first << "  " << trajectories[next_traj_it->first][0] << std::endl;
-				std::cout << "last first  key " << std::prev(trajectories.end())->first << "  " << trajectories[std::prev(trajectories.end())->first][0] << std::endl;
+				//std::cout << "first  key " << cur_traj_it->first << "  " << trajectories[cur_traj_it->first][0] << std::endl;
+				//std::cout << "next first  key " << next_traj_it->first << "  " << trajectories[next_traj_it->first][0] << std::endl;
+				//std::cout << "last   key " << std::prev(trajectories.end())->first << "  " << trajectories[std::prev(trajectories.end())->first][0] << std::endl;
 				trajectories[cur_traj_it->first + 1] = std::prev(trajectories.end())->second;
-				std::cout << "second key " << (--next_traj_it)->first << "  " << trajectories[(--next_traj_it)->first][0] << std::endl;
 				timestamps[cur_traj_it->first + 1] = std::prev(timestamps.end())->second;
 				trajectories.erase(std::prev(trajectories.end()));
 				timestamps.erase(std::prev(timestamps.end()));
-
+				//std::cout << "second key " << (--next_traj_it)->first << "  " << trajectories[(--next_traj_it)->first][0] << std::endl;
 			}
 		}
 	}
@@ -982,6 +981,12 @@ void KalmanFilterExperimental::SaveTrajectories(std::ofstream &file,
 	{
 		int counter = 0;
 
+		cv::Mat image;
+		image_processing_engine_.RetrieveSourceImage(i);
+		image = image_processing_engine_.GetSourceImage();
+		cv::Point2f center;
+		cv::Scalar color(255, 127, 0);
+
 		for (time = timestamps.begin(); time != timestamps.end(); ++time)
 		{
 			if (std::find(time->second.begin(), time->second.end(), i) != time->second.end())
@@ -998,21 +1003,36 @@ void KalmanFilterExperimental::SaveTrajectories(std::ofstream &file,
 				auto ts_iter = std::find(time->second.begin(), time->second.end(), i);
 				if (time->second.size() == trajectories[time->first].size())
 				{
+					auto bactery_data = trajectories[time->first][std::distance(time->second.begin(), ts_iter)];
 					file
 						<< time->first << " "
-						<< trajectories[time->first][std::distance(time->second.begin(), ts_iter)](0) << " "
-						<< trajectories[time->first][std::distance(time->second.begin(), ts_iter)](1) << " "
-						<< trajectories[time->first][std::distance(time->second.begin(), ts_iter)](2) << " "
-						<< trajectories[time->first][std::distance(time->second.begin(), ts_iter)](3) << " "
-						<< trajectories[time->first][std::distance(time->second.begin(), ts_iter)](4) << " "
-						<< trajectories[time->first][std::distance(time->second.begin(), ts_iter)](5) << " "
-						<< trajectories[time->first][std::distance(time->second.begin(), ts_iter)](6) << " "
-						<< trajectories[time->first][std::distance(time->second.begin(), ts_iter)](7) << " ";
-				}				
+						<< bactery_data(0) << " "
+						<< bactery_data(1) << " "
+						<< bactery_data(2) << " "
+						<< bactery_data(3) << " "
+						<< bactery_data(4) << " "
+						<< bactery_data(5) << " "
+						<< bactery_data(6) << " "
+						<< bactery_data(7) << " ";
+
+					center = cv::Point2f(bactery_data(0), bactery_data(1));
+					cv::circle(image, center, 3, color, -1, 8);
+					cv::putText(image, std::to_string(time->first), center, cv::FONT_HERSHEY_DUPLEX, 0.4, color);
+					cv::line(image,
+						center,
+						center + cv::Point2f(bactery_data(2), bactery_data(3)),
+						cv::Scalar(255, 0, 0));
+				}
 			}
-			
+
 		}
 		file << std::endl;
+		std::ostringstream output_image_name_buf;
+		output_image_name_buf << parameter_handler_.GetInputFolder() << parameter_handler_.GetKalmanFilterSubfolder()
+			<< parameter_handler_.GetFileName0() << std::setfill('0') << std::setw(9) << i
+			<< parameter_handler_.GetFileName1();
+		std::string output_image_name = output_image_name_buf.str();
+		cv::imwrite(output_image_name, image);
 	}
 }
 
@@ -1064,7 +1084,7 @@ void KalmanFilterExperimental::SaveImages(int image_idx, const std::map<int, Eig
 		cv::line(image,
 			center,
 			center + cv::Point2f(x_i(2),
-				x_i(2)),//center + cv::Point2f(std::cosf(x_i(5)), std::sinf(x_i(5))) * length / 2.0f,
+				x_i(3)),//center + cv::Point2f(std::cosf(x_i(5)), std::sinf(x_i(5))) * length / 2.0f,
 			cv::Scalar(255, 0, 0));
 		//		std::cout << "(" << center.x << "," << center.y << ") -> (" << center.x + std::cosf(x_i(5)) * x_i(4) / 10.0f << "," << center.y + std::sinf(x_i(5)) * x_i(4) / 10.0f << ")" << std::endl;
 	}
@@ -1076,6 +1096,8 @@ void KalmanFilterExperimental::SaveImages(int image_idx, const std::map<int, Eig
 	std::string output_image_name = output_image_name_buf.str();
 	cv::imwrite(output_image_name, image);
 }
+
+
 
 CostInt KalmanFilterExperimental::InitializeCostMatrix(const std::map<int, Eigen::VectorXf> &targets,
 	const std::vector<Eigen::VectorXf> &detections,

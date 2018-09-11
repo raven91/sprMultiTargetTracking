@@ -37,6 +37,7 @@ public:
 	void PerformTrackLinking(std::map<int, std::vector<Eigen::VectorXf>> &trajectories,
 		std::map<int, std::vector<int>> &timestamps);
 
+
 private:
 
 	ParameterHandlerExperimental &parameter_handler_;
@@ -49,6 +50,9 @@ private:
 	int max_prediction_time_;
 	int max_target_index_;
 	Real costs_order_of_magnitude_;
+
+	void FillHolesInMaps(std::map<int, std::vector<Eigen::VectorXf>>& trajectories, std::map<int, std::vector<int>>& timestamps);
+
 
 	void ComputePriorEstimate(std::map<int, Eigen::VectorXf> &targets,
 		Eigen::MatrixXf &P_estimate,
@@ -110,6 +114,7 @@ private:
 	void SaveTrajectories(std::ofstream & file, std::map<int, std::vector<Eigen::VectorXf>>& trajectories, std::map<int, std::vector<int>>& timestamps);
 	void SaveTrajectoriesMatlab(std::ofstream & file, std::map<int, std::vector<Eigen::VectorXf>>& trajectories, std::map<int, std::vector<int>>& timestamps);
 	void SaveImages(int image_idx, const std::map<int, Eigen::VectorXf> &targets);
+
 
 	CostInt InitializeCostMatrix(const std::map<int, Eigen::VectorXf> &targets,
 		const std::vector<Eigen::VectorXf> &detections,
