@@ -995,19 +995,19 @@ void KalmanFilterExperimental::SaveTrajectories(std::ofstream &file,
 			if (std::find(time->second.begin(), time->second.end(), i) != time->second.end())
 			{
 
-				auto time_it = (std::find(time->second.begin(), time->second.end(), i));
+				auto ts_iter = std::find(time->second.begin(), time->second.end(), i);
 				if (time->second.size() == trajectories[time->first].size())
 				{
 					file
 						<< time->first << " "
-						<< trajectories[time->first][std::distance(time->second.begin(), time_it)](0) << " "
-						<< trajectories[time->first][std::distance(time->second.begin(), time_it)](1) << " "
-						<< trajectories[time->first][std::distance(time->second.begin(), time_it)](2) << " "
-						<< trajectories[time->first][std::distance(time->second.begin(), time_it)](3) << " "
-						<< trajectories[time->first][std::distance(time->second.begin(), time_it)](4) << " "
-						<< trajectories[time->first][std::distance(time->second.begin(), time_it)](5) << " "
-						<< trajectories[time->first][std::distance(time->second.begin(), time_it)](6) << " "
-						<< trajectories[time->first][std::distance(time->second.begin(), time_it)](7) << " ";
+						<< trajectories[time->first][std::distance(time->second.begin(), ts_iter)](0) << " "
+						<< trajectories[time->first][std::distance(time->second.begin(), ts_iter)](1) << " "
+						<< trajectories[time->first][std::distance(time->second.begin(), ts_iter)](2) << " "
+						<< trajectories[time->first][std::distance(time->second.begin(), ts_iter)](3) << " "
+						<< trajectories[time->first][std::distance(time->second.begin(), ts_iter)](4) << " "
+						<< trajectories[time->first][std::distance(time->second.begin(), ts_iter)](5) << " "
+						<< trajectories[time->first][std::distance(time->second.begin(), ts_iter)](6) << " "
+						<< trajectories[time->first][std::distance(time->second.begin(), ts_iter)](7) << " ";
 				}				
 			}
 			
