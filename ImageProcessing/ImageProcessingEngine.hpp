@@ -12,6 +12,7 @@
 
 #include <opencv2/highgui/highgui.hpp>
 #include <opencv2/imgproc/imgproc.hpp>
+#include <opencv2/photo/photo.hpp>
 
 #include <eigen3/Eigen/Dense>
 
@@ -23,11 +24,7 @@ class ImageProcessingEngine
   ~ImageProcessingEngine();
 
   void CreateNewImageProcessingOutputFile(ParameterHandlerExperimental &parameter_handler);
-  void RetrieveBacterialPositions();
   void RetrieveBacterialData(int image, std::vector<Eigen::VectorXf> &detections);
-  void ProcessAdditionalDetections(const std::vector<int> &indexes_to_unassigned_detections,
-                                   std::vector<Eigen::VectorXf> &additional_detections,
-                                   const std::vector<Eigen::VectorXf> &detections);
 
   const cv::Mat &GetSourceImage();
   const cv::Mat &GetSourceImage(int image);
@@ -44,6 +41,7 @@ class ImageProcessingEngine
   cv::Mat gray_image_;
   cv::Mat blurred_background_image_;
   cv::Mat illumination_corrected_image_;
+  cv::Mat denoised_image_;
   cv::Mat blur_image_;
   cv::Mat closing_image_;
   cv::Mat subtracted_image_;
@@ -55,25 +53,21 @@ class ImageProcessingEngine
   cv::Mat disconnected_image_;
 
   std::vector<std::vector<cv::Point>> contours_;
-  std::vector<cv::Moments> mu_;
 
   void RetrieveSourceImage(int image);
   void IncreaseContrast(const cv::Mat &I, cv::Mat &O);
+  void SubtractBackgroundNoise(const cv::Mat &I, cv::Mat &O);
   void CorrectForIllumination(const cv::Mat &I, cv::Mat &O);
   void ApplyBlurFilter(const cv::Mat &I, cv::Mat &O);
   void SubtractClosingImage(const cv::Mat &I, cv::Mat &O);
   void ApplyThreshold(const cv::Mat &I, cv::Mat &O);
   void FindContours(const cv::Mat &I);
+  void FindImprovedContours(const cv::Mat &I);
   void DrawContours();
   void SaveImage(const cv::Mat &I, int image);
   void SaveDetectedObjects(int image, std::vector<Eigen::VectorXf> &detections);
-
-  void ApplyMorphologicalTransform(int morph_operator, int morph_element, int morph_size);
-  void DetectEdges();
-  void AnalyzeConvexityDefects();
-  void AnalyzeConvexityDefectsBasedOnCrossSection();
-  void FindImprovedContourCenters();
-  void DisconnectBacteria();
+  bool IsContourInRoi(const std::vector<cv::Point> &contour);
+  void AnalyzeConvexityDefects(const cv::Mat &I, cv::Mat &O);
   void StandardizeImage(cv::Mat &image);
 
 };

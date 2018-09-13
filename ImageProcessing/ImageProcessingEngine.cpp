@@ -19,6 +19,7 @@ ImageProcessingEngine::ImageProcessingEngine(ParameterHandlerExperimental &param
   gray_image_ = cv::Mat::zeros(0, 0, CV_8UC1);
   blurred_background_image_ = cv::Mat::zeros(0, 0, CV_8UC1);
   illumination_corrected_image_ = cv::Mat::zeros(0, 0, CV_8UC1);
+  denoised_image_ = cv::Mat::zeros(0, 0, CV_8UC1);
   blur_image_ = cv::Mat::zeros(0, 0, CV_8UC1);
   closing_image_ = cv::Mat::zeros(0, 0, CV_8UC1);
   subtracted_image_ = cv::Mat::zeros(0, 0, CV_8UC1);
@@ -48,178 +49,19 @@ void ImageProcessingEngine::RetrieveBacterialData(int image, std::vector<Eigen::
 {
   RetrieveSourceImage(image);
   IncreaseContrast(source_image_, gray_image_);
-  CorrectForIllumination(gray_image_, illumination_corrected_image_);
-  SubtractClosingImage(illumination_corrected_image_, subtracted_image_);
-  ApplyBlurFilter(subtracted_image_,
-                  blur_image_);
-  ApplyThreshold(blur_image_, threshold_image_);
+  SubtractBackgroundNoise(gray_image_, denoised_image_);
+//  CorrectForIllumination(gray_image_, illumination_corrected_image_);
+//  SubtractClosingImage(illumination_corrected_image_, subtracted_image_);
+//  ApplyBlurFilter(subtracted_image_,
+//                  blur_image_);
+  ApplyThreshold(denoised_image_, threshold_image_);
   FindContours(threshold_image_);
-
-//  ApplyBlurFilter(parameter_handler_.GetBlurType(), parameter_handler_.GetBlurRadius());
-//  ApplyThreshold(parameter_handler_.GetThresholdType(), parameter_handler_.GetThresholdValue());
-//	ApplyMorphologicalTransform(parameter_handler_.GetMorphologicalOperator(), parameter_handler_.GetMorphologicalElement(), parameter_handler_.GetMorphologicalSize());
-//	DetectEdges();
-//  DisconnectBacteria();
-//	FindContours();
-//	AnalyzeConvexityDefects();
-//	AnalyzeConvexityDefectsBasedOnCrossSection();
-//  FindImprovedContourCenters();
+  AnalyzeConvexityDefects(threshold_image_, convexity_defects_image_);
+  FindImprovedContours(convexity_defects_image_);
 
   DrawContours();
-//  SaveImage(contour_image_, image);
+  SaveImage(contour_image_, image);
   SaveDetectedObjects(image, detections);
-}
-
-void ImageProcessingEngine::ProcessAdditionalDetections(const std::vector<int> &indexes_to_unassigned_detections,
-                                                        std::vector<Eigen::VectorXf> &additional_detections,
-                                                        const std::vector<Eigen::VectorXf> &detections)
-{
-  for (int i = 0; i < indexes_to_unassigned_detections.size(); ++i)
-  {
-    std::vector<cv::Point> &contour = contours_[indexes_to_unassigned_detections[i]];
-    if (contour.size() > 2) // convex hull may be computed for contours with number of points > 2
-    {
-      std::vector<int> convex_hull_indices;
-//			std::vector<cv::Point> convex_hull;
-      cv::convexHull(contour, convex_hull_indices, false, false);
-//			cv::convexHull(contour, convex_hull, false, true);
-      std::vector<cv::Vec4i> convexity_defects;
-      cv::convexityDefects(contour, convex_hull_indices, convexity_defects);
-      if (convexity_defects.size() > 0)
-      {
-        std::vector<cv::Vec4i>::iterator max_iter = std::max_element(convexity_defects.begin(),
-                                                                     convexity_defects.end(),
-                                                                     [](const cv::Vec4i &a, const cv::Vec4i &b)
-                                                                     {
-                                                                       return a[3] < b[3];
-                                                                     });
-        if ((*max_iter)[3] / 256.0 > parameter_handler_.GetConvexityDefectMagnitude())
-        {
-          cv::Rect bounding_rect = cv::boundingRect(contour);
-          cv::Mat bounding_image = disconnected_image_(bounding_rect).clone();
-          cv::Mat mask = cv::Mat::zeros(bounding_image.size(), bounding_image.type());
-          cv::drawContours(mask,
-                           contours_,
-                           indexes_to_unassigned_detections[i],
-                           cv::Scalar(255, 255, 255),
-                           -1,
-                           cv::LINE_AA,
-                           NULL,
-                           0,
-                           -bounding_rect.tl());
-          bounding_image = mask.clone();
-
-          const cv::Point2f &A = contour[(*max_iter)[0]];
-          const cv::Point2f &B = contour[(*max_iter)[1]];
-          const cv::Point2f &C = contour[(*max_iter)[2]];
-          cv::Point2f D;
-          if (A.x == B.x)
-          {
-            D.x = A.x;
-            D.y = C.y;
-          } else if (A.y == B.y)
-          {
-            D.x = C.x;
-            D.y = A.y;
-          } else
-          {
-            float m_AB = (A.y - B.y) / (A.x - B.x);
-            float b_AB = -((A.y - B.y) * B.x - B.y * (A.x - B.x)) / (A.x - B.x);
-            float m_CD = -1.0 / m_AB;
-            float b_CD = C.y - m_CD * C.x;
-            D.x = (b_CD - b_AB) / (m_AB - m_CD);
-            D.y = m_CD * D.x + b_CD;
-          }
-          float increment = 1.0 / cv::norm(C - D);
-          cv::Point2f point_along_defect(C + (C - D) * increment);
-          while (cv::pointPolygonTest(contour, point_along_defect, false) >= 0.0)
-          {
-            point_along_defect += (C - D) * increment;
-          }
-          point_along_defect += (C - D) * increment;
-          cv::Scalar color = cv::Scalar(0, 0, 0);
-          cv::Point2f shifted_point_0(C.x - (C.x - D.x) * 2.0 * increment - bounding_rect.x,
-                                      C.y - (C.y - D.y) * 2.0 * increment - bounding_rect.y);
-          cv::Point2f shifted_point_1(point_along_defect.x - bounding_rect.x, point_along_defect.y - bounding_rect.y);
-          cv::line(bounding_image, shifted_point_0, shifted_point_1, color, 4, cv::LINE_AA);
-
-          int offset = 2;
-          cv::Mat extended_bounding_image(bounding_image.size(), bounding_image.type());
-          cv::copyMakeBorder(bounding_image,
-                             extended_bounding_image,
-                             offset,
-                             offset,
-                             offset,
-                             offset,
-                             cv::BORDER_CONSTANT,
-                             cv::Scalar(0, 0, 0));
-          std::vector<std::vector<cv::Point>> bounding_contours;
-          std::vector<cv::Vec4i> bounding_hierarchy;
-          cv::findContours(extended_bounding_image,
-                           bounding_contours,
-                           bounding_hierarchy,
-                           cv::RETR_EXTERNAL,
-                           cv::CHAIN_APPROX_SIMPLE,
-                           cv::Point(-offset, -offset));
-          // TODO: remove small contours
-          std::vector<cv::Moments> bounding_mu = std::vector<cv::Moments>(bounding_contours.size());
-          for (int m = 0; m < bounding_contours.size(); ++m)
-          {
-            bounding_mu[m] = cv::moments(bounding_contours[m], true);
-          }
-
-//					cv::Mat color_image;
-//					cv::cvtColor(bounding_image, color_image, cv::COLOR_GRAY2BGR);
-//					cv::RNG rng(12345);
-//					for (int m = 0; m < bounding_contours.size(); ++m)
-//					{
-//						cv::drawContours(color_image, bounding_contours, m, cv::Scalar(rng.uniform(0, 255), rng.uniform(0, 255), rng.uniform(0, 255)), -1, cv::LINE_AA, NULL, 0);
-//					}
-//					cv::circle(bounding_image, shifted_point_0, 1, cv::Scalar(rng.uniform(0, 255), rng.uniform(0, 255), rng.uniform(0, 255)));
-//					cv::circle(bounding_image, shifted_point_1, 1, cv::Scalar(rng.uniform(0, 255), rng.uniform(0, 255), rng.uniform(0, 255)));
-
-          cv::Vec4f fitted_line;
-          cv::RotatedRect min_rect;
-          Eigen::VectorXf new_detection(kNumOfExtractedFeatures);
-          if (bounding_contours.size() == 2)
-          {
-            new_detection(0) = bounding_rect.x + bounding_mu[0].m10 / bounding_mu[0].m00;
-            new_detection(1) = bounding_rect.y + bounding_mu[0].m01 / bounding_mu[0].m00;
-            new_detection(2) = 0.0;
-            new_detection(3) = 0.0;
-            new_detection(4) = cv::contourArea(bounding_contours[0]);
-            cv::fitLine(bounding_contours[0], fitted_line, cv::DIST_L2, 0, 0.01, 0.01);
-            new_detection(5) = std::atan(fitted_line[1] / fitted_line[0]);
-            min_rect = cv::minAreaRect(cv::Mat(bounding_contours[0]));
-            new_detection(6) = min_rect.size.width;
-            new_detection(7) = min_rect.size.height;
-            additional_detections.push_back(new_detection);
-
-            new_detection(0) = bounding_rect.x + bounding_mu[1].m10 / bounding_mu[1].m00;
-            new_detection(1) = bounding_rect.y + bounding_mu[1].m01 / bounding_mu[1].m00;
-            new_detection(2) = 0.0;
-            new_detection(3) = 0.0;
-            new_detection(4) = cv::contourArea(bounding_contours[1]);
-            cv::fitLine(bounding_contours[1], fitted_line, cv::DIST_L2, 0, 0.01, 0.01);
-            new_detection(5) = std::atan(fitted_line[1] / fitted_line[0]);
-            min_rect = cv::minAreaRect(cv::Mat(bounding_contours[1]));
-            new_detection(6) = min_rect.size.width;
-            new_detection(7) = min_rect.size.height;
-            additional_detections.push_back(new_detection);
-          } else
-          {
-            cv::imwrite(
-                parameter_handler_.GetInputFolder() + std::string("debug/") + std::to_string(++test_image_counter_)
-                    + std::string(".tif"), mask);
-            std::cerr << "wrong number of new contours after kalman estimation" << std::endl;
-          }
-        } else // convexity defect is small
-        {
-          additional_detections.push_back(detections[indexes_to_unassigned_detections[i]]);
-        }
-      } // if (convexity_defects.size() > 0)
-    } // if (contour.size() > 2)
-  } // for i
 }
 
 /*void ImageProcessingEngine::RetrieveBacterialPositions()
@@ -265,7 +107,7 @@ void ImageProcessingEngine::ProcessAdditionalDetections(const std::vector<int> &
         DisconnectBacteria();
         FindContours();
         AnalyzeConvexityDefects();
-        FindImprovedContourCenters();
+        FindImprovedContours();
 
         std::ostringstream output_image_name_buf;
         output_image_name_buf << output_folder << file_name_0 << std::setfill('0') << std::setw(9) << i << file_name_1;
@@ -318,6 +160,20 @@ void ImageProcessingEngine::IncreaseContrast(const cv::Mat &I, cv::Mat &O)
       cv::equalizeHist(sub_img, sub_img);
     }
   }
+}
+
+void ImageProcessingEngine::SubtractBackgroundNoise(const cv::Mat &I, cv::Mat &O)
+{
+  int h = 2 * 27 + 1;
+  int template_window_size = 7;
+  int search_window_size = 21;
+  blurred_background_image_ = I.clone();
+  cv::fastNlMeansDenoising(blurred_background_image_.clone(),
+                           blurred_background_image_,
+                           h,
+                           template_window_size,
+                           search_window_size);
+  O = I - blurred_background_image_;
 }
 
 void ImageProcessingEngine::CorrectForIllumination(const cv::Mat &I, cv::Mat &O)
@@ -422,7 +278,6 @@ void ImageProcessingEngine::FindContours(const cv::Mat &I)
                      cv::BORDER_CONSTANT,
                      cv::Scalar(0, 0, 0));
 
-//	std::vector<std::vector<cv::Point>> contours;
   contours_.clear();
   std::vector<cv::Vec4i> hierarchy;
   cv::findContours(extended_contour_image,
@@ -436,19 +291,65 @@ void ImageProcessingEngine::FindContours(const cv::Mat &I)
                                  [&](const std::vector<cv::Point> &contour)
                                  {
                                    double contour_area = cv::contourArea(contour);
-                                   cv::RotatedRect rotated_rect = cv::minAreaRect(contour);
-                                   std::vector<cv::Point> convex_hull;
-                                   cv::convexHull(cv::Mat(contour), convex_hull, false);
-                                   double convex_hull_area = cv::contourArea(convex_hull);
-                                   cv::Moments mu = cv::moments(contour, true);
-                                   cv::Point center = cv::Point(mu.m10 / mu.m00, mu.m01 / mu.m00);
-                                   return (contour_area < parameter_handler_.GetMinContourArea())
-                                       || (std::max(rotated_rect.size.width, rotated_rect.size.height)
-                                           / std::min(rotated_rect.size.width, rotated_rect.size.height)
-                                           < parameter_handler_.GetHeightToWidthRatio())
-                                       || (convex_hull_area / contour_area > parameter_handler_.GetAreaIncrease())
-                                       || (cv::pointPolygonTest(contour, center, true)
-                                           < -parameter_handler_.GetCenterOfMassDistance());
+//                                   cv::RotatedRect rotated_rect = cv::minAreaRect(contour);
+//                                   std::vector<cv::Point> convex_hull;
+//                                   cv::convexHull(cv::Mat(contour), convex_hull, false);
+//                                   double convex_hull_area = cv::contourArea(convex_hull);
+//                                   cv::Moments mu = cv::moments(contour, true);
+//                                   cv::Point center = cv::Point(mu.m10 / mu.m00, mu.m01 / mu.m00);
+                                   return (contour_area < parameter_handler_.GetMinContourArea());
+//                                   return (contour_area < parameter_handler_.GetMinContourArea())
+//                                       || (std::max(rotated_rect.size.width, rotated_rect.size.height)
+//                                           / std::min(rotated_rect.size.width, rotated_rect.size.height)
+//                                           < parameter_handler_.GetHeightToWidthRatio())
+//                                       || (convex_hull_area / contour_area > parameter_handler_.GetAreaIncrease())
+//                                       || (cv::pointPolygonTest(contour, center, true)
+//                                           < -parameter_handler_.GetCenterOfMassDistance());
+                                 }),
+                  contours_.end());
+}
+
+void ImageProcessingEngine::FindImprovedContours(const cv::Mat &I)
+{
+  int offset = 2;
+  cv::Mat extended_contour_image;
+  contour_image_ = I.clone();
+  cv::copyMakeBorder(contour_image_,
+                     extended_contour_image,
+                     offset,
+                     offset,
+                     offset,
+                     offset,
+                     cv::BORDER_CONSTANT,
+                     cv::Scalar(0, 0, 0));
+
+  contours_.clear();
+  std::vector<cv::Vec4i> hierarchy;
+  cv::findContours(extended_contour_image,
+                   contours_,
+                   hierarchy,
+                   cv::RETR_EXTERNAL,
+                   cv::CHAIN_APPROX_SIMPLE,
+                   cv::Point(-offset, -offset));
+  contours_.erase(std::remove_if(contours_.begin(),
+                                 contours_.end(),
+                                 [&](const std::vector<cv::Point> &contour)
+                                 {
+                                   double contour_area = cv::contourArea(contour);
+//                                   cv::RotatedRect rotated_rect = cv::minAreaRect(contour);
+//                                   std::vector<cv::Point> convex_hull;
+//                                   cv::convexHull(cv::Mat(contour), convex_hull, false);
+//                                   double convex_hull_area = cv::contourArea(convex_hull);
+//                                   cv::Moments mu = cv::moments(contour, true);
+//                                   cv::Point center = cv::Point(mu.m10 / mu.m00, mu.m01 / mu.m00);
+                                   return (contour_area < parameter_handler_.GetMinContourArea());
+//                                   return (contour_area < parameter_handler_.GetMinContourArea())
+//                                       || (std::max(rotated_rect.size.width, rotated_rect.size.height)
+//                                           / std::min(rotated_rect.size.width, rotated_rect.size.height)
+//                                           < parameter_handler_.GetHeightToWidthRatio())
+//                                       || (convex_hull_area / contour_area > parameter_handler_.GetAreaIncrease())
+//                                       || (cv::pointPolygonTest(contour, center, true)
+//                                           < -parameter_handler_.GetCenterOfMassDistance());
                                  }),
                   contours_.end());
 }
@@ -478,12 +379,21 @@ void ImageProcessingEngine::DrawContours()
   cv::Mat indexed_contours_image;
 //  gray_image_.convertTo(indexed_contours_image, CV_8UC3);
   cv::cvtColor(gray_image_, indexed_contours_image, cv::COLOR_GRAY2BGR);
-  for (int i = 0; i < contours_.size(); ++i)
+  for (int i = 0; i < (int) contours_.size(); ++i)
   {
     std::string index = std::to_string(i);
     cv::Moments mu = cv::moments(contours_[i], true);
     cv::Point center = cv::Point(mu.m10 / mu.m00, mu.m01 / mu.m00);
-    cv::Scalar color = cv::Scalar(0, 255, 0);
+
+    // define color based on the distance from the boundary
+    cv::Scalar color;
+    if (IsContourInRoi(contours_[i]))
+    {
+      color = cv::Scalar(0, 255, 0);
+    } else
+    {
+      color = cv::Scalar(0, 0, 255);
+    }
     cv::circle(indexed_contours_image, center, 4, color, -1, 8);
     cv::putText(indexed_contours_image, index, center, cv::FONT_HERSHEY_DUPLEX, 0.4, color);
   }
@@ -524,107 +434,74 @@ void ImageProcessingEngine::SaveDetectedObjects(int image, std::vector<Eigen::Ve
 
     new_detection(4) = Real(cv::contourArea(contours_[b]));
 
+    // fitted_line = (vx, vy, x0, y0)
     cv::fitLine(contours_[b], fitted_line, cv::DIST_L2, 0, 0.01, 0.01);
-    new_detection(5) = std::atan(fitted_line[1] / fitted_line[0]); // TODO: verify slope range
+    // TODO: verify slope range
+    // [-pi,+pi]
+    new_detection(5) = std::atan2(fitted_line[1], fitted_line[0]);
 
     min_rect = cv::minAreaRect(cv::Mat(contours_[b]));
     new_detection(6) = std::min(min_rect.size.width, min_rect.size.height);
     new_detection(7) = std::max(min_rect.size.width, min_rect.size.height);
 
-    detections.push_back(new_detection);
-    image_processing_output_file_ << b << " " << new_detection(0) << " " << new_detection(1) << " " << new_detection(2)
-                                  << " " << new_detection(3) << " " << new_detection(4) << " " << new_detection(5)
-                                  << " " << new_detection(6) << " " << new_detection(7) << " ";
+    // consider the objects that are not at the boundary
+    if (IsContourInRoi(contours_[b]))
+    {
+      detections.push_back(new_detection);
+      image_processing_output_file_ << b << " " << new_detection(0) << " " << new_detection(1) << " "
+                                    << new_detection(2)
+                                    << " " << new_detection(3) << " " << new_detection(4) << " " << new_detection(5)
+                                    << " " << new_detection(6) << " " << new_detection(7) << " ";
+    }
   }
   image_processing_output_file_ << std::endl;
 }
 
-void ImageProcessingEngine::ApplyMorphologicalTransform(int morph_operator, int morph_element, int morph_size)
+bool ImageProcessingEngine::IsContourInRoi(const std::vector<cv::Point> &contour)
 {
-  /*
-   0: Erosion
-   1: Dilation
-   2: Opening
-   3: Closing
-   4: Gradient
-   5: Top Hat
-   6: Black Hat
-   */
+  int margin = 50;
+  std::vector<cv::Point> roi =
+      {
+          cv::Point(margin, margin),
+          cv::Point(margin, parameter_handler_.GetSubimageYSize() - margin),
+          cv::Point(parameter_handler_.GetSubimageXSize() - margin, parameter_handler_.GetSubimageYSize() - margin),
+          cv::Point(parameter_handler_.GetSubimageXSize() - margin, margin)
+      };
+  cv::Mat mask_with_roi =
+      cv::Mat::zeros(parameter_handler_.GetSubimageXSize(), parameter_handler_.GetSubimageYSize(), CV_8UC1);
+  cv::rectangle(mask_with_roi, roi[0], roi[2], 255, CV_FILLED, 8, 0);
+//  cv::namedWindow("roi", cv::WINDOW_AUTOSIZE);
+//  cv::imshow("roi", mask_with_roi);
+//  cv::waitKey(1);
 
-  cv::Mat element = cv::getStructuringElement(morph_element,
-                                              cv::Size(2 * morph_size + 1, 2 * morph_size + 1),
-                                              cv::Point(morph_size, morph_size));
-  cv::morphologyEx(threshold_image_.clone(), morphology_image_, morph_operator, element);
-}
-
-void ImageProcessingEngine::DetectEdges()
-{
-//	int canny_low_threshold = 0;
-//	int canny_ratio = 2;
-//	int canny_high_threshold = canny_low_threshold * canny_ratio;
-//	int canny_kernel_size = 5; // 3,5,7 ?
-//	cv::Canny(blur_image_.clone(), edge_image_, canny_low_threshold, canny_high_threshold, canny_kernel_size);
-
-  cv::Laplacian(blur_image_.clone(), edge_image_, CV_16S, 1, 1, 0, cv::BORDER_DEFAULT);
-  cv::convertScaleAbs(edge_image_, edge_image_);
-}
-
-void ImageProcessingEngine::FindImprovedContourCenters()
-{
-  int offset = 2;
-  cv::Mat extended_contour_image;
-  cv::copyMakeBorder(disconnected_image_,
-                     extended_contour_image,
-                     offset,
-                     offset,
-                     offset,
-                     offset,
-                     cv::BORDER_CONSTANT,
-                     cv::Scalar(0, 0, 0));
-
-  contours_.clear();
-  std::vector<cv::Vec4i> hierarchy;
-  cv::findContours(extended_contour_image,
-                   contours_,
-                   hierarchy,
-                   cv::RETR_TREE,
-                   cv::CHAIN_APPROX_SIMPLE,
-                   cv::Point(-offset, -offset));
-  contours_.erase(std::remove_if(contours_.begin(),
-                                 contours_.end(),
-                                 [&](const std::vector<cv::Point> &contour)
-                                 {
-                                   double contour_area = cv::contourArea(contour);
-                                   return contour_area < parameter_handler_.GetMinContourArea();
-                                 }),
-                  contours_.end());
-
-  mu_ = std::vector<cv::Moments>(contours_.size());
-  for (int i = 0; i < contours_.size(); ++i)
+  cv::RotatedRect min_rect = cv::minAreaRect(cv::Mat(contour));
+  cv::Point2f min_rect_points_f[4];
+  min_rect.points(min_rect_points_f);
+  cv::Mat mask_with_min_rect =
+      cv::Mat::zeros(parameter_handler_.GetSubimageXSize(), parameter_handler_.GetSubimageYSize(), CV_8UC1);
+  cv::Point min_rect_points_i[4];
+  for (int i = 0; i < 4; ++i)
   {
-    mu_[i] = cv::moments(contours_[i], true);
+    min_rect_points_i[i] = min_rect_points_f[i];
   }
+  cv::fillConvexPoly(mask_with_min_rect, min_rect_points_i, 4, 255, 8, 0);
+//  cv::namedWindow("min_rect", cv::WINDOW_AUTOSIZE);
+//  cv::imshow("min_rect", mask_with_min_rect);
+//  cv::waitKey(1);
 
-  cv::Mat contours_centers_image;
-  cv::cvtColor(gray_image_, contours_centers_image, cv::COLOR_GRAY2BGR);
-  for (int i = 0; i < contours_.size(); ++i)
-  {
-    cv::Scalar color = cv::Scalar(0, 127, 0);
-    cv::Point2f center = cv::Point(mu_[i].m10 / mu_[i].m00, mu_[i].m01 / mu_[i].m00);
-    cv::circle(contours_centers_image, center, 4, color, -1, 8);
-    cv::putText(contours_centers_image, std::to_string(i), center, cv::FONT_HERSHEY_DUPLEX, 0.4, color);
-//
-//		cv::Vec4f fitted_line;
-//		cv::fitLine(contours_[i], fitted_line, cv::DIST_L2, 0, 0.01, 0.01);
-//		cv::Point2f line_direction(std::cos(std::atan(fitted_line(1) / fitted_line(0))), std::sin(std::atan(fitted_line(1) / fitted_line(0))));
-//		cv::line(contours_centers_image, center - 10.0f * line_direction, center + 10.0f * line_direction, color);
-  }
-  contour_image_ = contours_centers_image;
+  cv::Mat
+      mask = cv::Mat::zeros(parameter_handler_.GetSubimageXSize(), parameter_handler_.GetSubimageYSize(), CV_8UC1);
+  cv::bitwise_and(mask_with_roi, mask_with_min_rect, mask);
+//  cv::namedWindow("abc", cv::WINDOW_AUTOSIZE);
+//  cv::imshow("abc", mask);
+//  cv::waitKey(1);
+
+  return (cv::sum(mask)[0] > 0.0);
 }
 
-void ImageProcessingEngine::AnalyzeConvexityDefects()
+void ImageProcessingEngine::AnalyzeConvexityDefects(const cv::Mat &I, cv::Mat &O)
 {
-  convexity_defects_image_ = disconnected_image_.clone();
+  O = I.clone();
 
   for (int i = 0; i < contours_.size(); ++i)
   {
@@ -635,232 +512,58 @@ void ImageProcessingEngine::AnalyzeConvexityDefects()
       std::vector<cv::Point> convex_hull;
       cv::convexHull(contour, convex_hull_indices, false, false);
       cv::convexHull(contour, convex_hull, false, true);
-      if (cv::contourArea(convex_hull) / cv::contourArea(contour) > parameter_handler_.GetAreaIncrease())
+//      if (cv::contourArea(convex_hull) / cv::contourArea(contour) > parameter_handler_.GetAreaIncrease())
+      if (!cv::isContourConvex(contour))
       {
         std::vector<cv::Vec4i> convexity_defects;
         cv::convexityDefects(contour, convex_hull_indices, convexity_defects);
-        std::vector<cv::Vec4i>::iterator max_iter = std::max_element(convexity_defects.begin(),
-                                                                     convexity_defects.end(),
-                                                                     [](const cv::Vec4i &a, const cv::Vec4i &b)
-                                                                     {
-                                                                       return a[3] < b[3];
-                                                                     });
-        if ((*max_iter)[3] / 256.0 > parameter_handler_.GetConvexityDefectMagnitude())
+        for (std::vector<cv::Vec4i>::iterator cd_it = convexity_defects.begin(); cd_it != convexity_defects.end();
+             ++cd_it)
         {
-//					cv::Rect bounding_rect = cv::boundingRect(contour);
-//					cv::Mat bounding_image = blur_image_(bounding_rect).clone();
-//					cv::Mat mask = cv::Mat::zeros(bounding_image.size(), bounding_image.type());
-//					cv::drawContours(mask, contours_, i, cv::Scalar(255, 255, 255), -1, cv::LINE_AA, NULL, 0, cv::Point(0, 0));
-//					bounding_image.clone().copyTo(bounding_image, mask);
-//					cv::threshold(bounding_image, bounding_image, 127, 255, 0); // 127 -> put actual threshold
-////					cv::Mat element = cv::getStructuringElement(0, cv::Size(2 * 1 + 1, 2 * 1 + 1), cv::Point(1, 1));
-////					cv::morphologyEx(bounding_image, bounding_image, 2, element);
-//
-//					int offset = 2;
-//					cv::Mat extended_bounding_image;
-//					cv::copyMakeBorder(bounding_image, extended_bounding_image, offset, offset, offset, offset, cv::BORDER_CONSTANT, cv::Scalar(0, 0, 0));
-//					std::vector<std::vector<cv::Point>> bounding_contours;
-//					std::vector<cv::Vec4i> bounding_hierarchy;
-//					cv::findContours(extended_bounding_image, bounding_contours, bounding_hierarchy, cv::RETR_EXTERNAL, cv::CHAIN_APPROX_SIMPLE, cv::Point(-offset, -offset));
-//
-//					if (bounding_contours.size() > 1)
+          double max_fixpt_depth = (*cd_it)[3] / 256.0;
+          if (max_fixpt_depth > parameter_handler_.GetConvexityDefectMagnitude())
           {
-            const cv::Point2f &A = contour[(*max_iter)[0]];
-            const cv::Point2f &B = contour[(*max_iter)[1]];
-            const cv::Point2f &C = contour[(*max_iter)[2]];
-            cv::Point2f D;
-            if (A.x == B.x)
+            const cv::Point2f &start_point = contour[(*cd_it)[0]];
+            const cv::Point2f &end_point = contour[(*cd_it)[1]];
+            const cv::Point2f &farthest_point = contour[(*cd_it)[2]];
+
+            cv::Point2f middle_point(0.5 * (start_point.x + end_point.x), 0.5 * (start_point.y + end_point.y));
+            cv::Point2f inward_cutting_vec = farthest_point - middle_point;
+            double inward_cutting_vec_norm =
+                std::sqrt(inward_cutting_vec.x * inward_cutting_vec.x + inward_cutting_vec.y * inward_cutting_vec.y);
+            inward_cutting_vec /= inward_cutting_vec_norm;
+            double intersection_length = 0.0;
+            do
             {
-              D.x = A.x;
-              D.y = C.y;
-            } else if (A.y == B.y)
+              intersection_length += 1.0;
+            } while (cv::pointPolygonTest(convex_hull,
+                                          middle_point
+                                              + inward_cutting_vec * (inward_cutting_vec_norm + intersection_length),
+                                          false) >= 0.0);
+            if (intersection_length <= 15.0) // if the cut is transverse to bacteria
             {
-              D.x = C.x;
-              D.y = A.y;
-            } else
-            {
-              float m_AB = (A.y - B.y) / (A.x - B.x);
-              float b_AB = -((A.y - B.y) * B.x - B.y * (A.x - B.x)) / (A.x - B.x);
-              float m_CD = -1.0 / m_AB;
-              float b_CD = C.y - m_CD * C.x;
-              D.x = (b_CD - b_AB) / (m_AB - m_CD);
-              D.y = m_CD * D.x + b_CD;
+              cv::line(O,
+                       farthest_point,
+                       middle_point + inward_cutting_vec * (inward_cutting_vec_norm + intersection_length),
+                       cv::Scalar(0, 0, 0),
+                       2,
+                       cv::LINE_AA);
             }
-
-            float increment = 1.0 / cv::norm(C - D);
-            cv::Point2f point_along_defect(C + (C - D) * increment);
-            while (cv::pointPolygonTest(contour, point_along_defect, false) >= 0.0)
-            {
-              point_along_defect.x += (C.x - D.x) * increment;
-              point_along_defect.y += (C.y - D.y) * increment;
-            }
-//						point_along_defect += 1.0 * (C - D) * increment;
-            cv::Scalar color = cv::Scalar(0, 0, 0);
-            cv::line(convexity_defects_image_,
-                     cv::Point2f(C.x - (C.x - D.x) * increment, C.y - (C.y - D.y) * increment),
-                     point_along_defect,
-                     color,
-                     4,
-                     cv::LINE_8);
           }
-        }
+        } // cd_it
       }
     }
-  }
-}
-
-void ImageProcessingEngine::AnalyzeConvexityDefectsBasedOnCrossSection()
-{
-  convexity_defects_image_ = disconnected_image_.clone();
-
-  for (int i = 0; i < contours_.size(); ++i)
-  {
-    const std::vector<cv::Point> &contour = contours_[i];
-    if (contour.size() > 2) // convex hull may be computed for contours with number of points > 2
-    {
-      std::vector<int> convex_hull_indices;
-      std::vector<cv::Point> convex_hull;
-      cv::convexHull(contour, convex_hull_indices, false, false);
-      cv::convexHull(contour, convex_hull, false, true);
-      if (cv::contourArea(convex_hull) / cv::contourArea(contour) > parameter_handler_.GetAreaIncrease())
-      {
-        std::vector<cv::Vec4i> convexity_defects;
-        cv::convexityDefects(contour, convex_hull_indices, convexity_defects);
-        std::vector<cv::Vec4i>::iterator max_iter = std::max_element(convexity_defects.begin(),
-                                                                     convexity_defects.end(),
-                                                                     [](const cv::Vec4i &a, const cv::Vec4i &b)
-                                                                     {
-                                                                       return a[3] < b[3];
-                                                                     });
-        if ((*max_iter)[3] / 256.0 > parameter_handler_.GetConvexityDefectMagnitude())
-        {
-          const cv::Point2f &A = contour[(*max_iter)[0]];
-          const cv::Point2f &B = contour[(*max_iter)[1]];
-          const cv::Point2f &C = contour[(*max_iter)[2]];
-          cv::Point2f D;
-          if (A.x == B.x)
-          {
-            D.x = A.x;
-            D.y = C.y;
-          } else if (A.y == B.y)
-          {
-            D.x = C.x;
-            D.y = A.y;
-          } else
-          {
-            float m_AB = (A.y - B.y) / (A.x - B.x);
-            float b_AB = -((A.y - B.y) * B.x - B.y * (A.x - B.x)) / (A.x - B.x);
-            float m_CD = -1.0 / m_AB;
-            float b_CD = C.y - m_CD * C.x;
-            D.x = (b_CD - b_AB) / (m_AB - m_CD);
-            D.y = m_CD * D.x + b_CD;
-          }
-          float increment = 1.0 / cv::norm(C - D);
-          cv::Point2f E(C + (C - D) * increment);
-          while (cv::pointPolygonTest(contour, E, false) >= 0.0)
-          {
-            E += (C - D) * increment;
-          }
-
-          cv::Point2f D1(D + (B - D) / cv::norm(B - D) * 5.0);
-          cv::Point2f C1(D1);
-          while (cv::pointPolygonTest(contour, C1, false) <= 0.0)
-          {
-            C1 += (C - D) * increment;
-          }
-          cv::Point2f E1(C1 + (C - D) * increment);
-          while (cv::pointPolygonTest(contour, E1, false) >= 0.0)
-          {
-            E1 += (C - D) * increment;
-          }
-
-          cv::Point2f D2(D - (B - D) / cv::norm(B - D) * 5.0);
-          cv::Point2f C2(D2);
-          while (cv::pointPolygonTest(contour, C2, false) <= 0.0)
-          {
-            C2 += (C - D) * increment;
-          }
-          cv::Point2f E2(C2 + (C - D) * increment);
-          while (cv::pointPolygonTest(contour, E2, false) >= 0.0)
-          {
-            E2 += (C - D) * increment;
-          }
-
-          if ((cv::norm(E - C) - cv::norm(E1 - C1) > 3.0) && (cv::norm(E - C) - cv::norm(E2 - C2) > 3.0))
-          {
-            cv::Scalar color = cv::Scalar(0, 0, 0);
-            cv::line(convexity_defects_image_,
-                     cv::Point2f(C.x - (C.x - D.x) * 2.0 * increment, C.y - (C.y - D.y) * 2.0 * increment),
-                     cv::Point2f(E.x + (C.x - D.x) * 2.0 * increment, E.y + (C.y - D.y) * 2.0 * increment),
-                     color,
-                     2,
-                     cv::LINE_AA);
-          }
-        }
-      }
-    }
-  }
-}
-
-void ImageProcessingEngine::DisconnectBacteria()
-{
-  cv::Mat I = threshold_image_;
-  cv::Mat J = disconnected_image_ = threshold_image_.clone();
-  CV_Assert(I.depth() == CV_8U);
-
-  int channels = I.channels();
-  int n_rows = I.rows;
-  int n_cols = I.cols * channels;
-
-  if (I.isContinuous())
-  {
-    const uchar *ptr = I.ptr<uchar>(0);
-    uchar *out_ptr = J.ptr<uchar>(0);
-    for (int j = 1; j < n_rows - 1; ++j)
-    {
-      for (int i = 1; i < n_cols - 1; ++i)
-      {
-        if (ptr[n_cols * j + i] == 255)
-        {
-          if ((ptr[n_cols * (j - 1) + i] == 0 && ptr[n_cols * (j + 1) + i] == 0) ||
-              (ptr[n_cols * j + i - 1] == 0 && ptr[n_cols * j + i + 1] == 0) ||
-              (ptr[n_cols * (j - 1) + i - 1] == 0 && ptr[n_cols * (j + 1) + i + 1] == 0) ||
-              (ptr[n_cols * (j + 1) + i - 1] == 0 && ptr[n_cols * (j - 1) + i + 1] == 0))
-          {
-            out_ptr[n_cols * j + i] = 0;
-          }
-        }
-      }
-    }
-  } else
-  {
-    for (int j = 1; j < n_rows - 1; ++j)
-    {
-      const uchar *prev_row = I.ptr<uchar>(j - 1);
-      const uchar *curr_row = I.ptr<uchar>(j);
-      const uchar *next_row = I.ptr<uchar>(j + 1);
-
-      uchar *output_row = J.ptr<uchar>(j);
-
-      for (int i = 1; i < n_cols - 1; ++i)
-      {
-        if (curr_row[i] == 255)
-        {
-          if ((prev_row[i] == 0 && next_row[i] == 0) ||
-              (curr_row[i - 1] == 0 && curr_row[i + 1] == 0) ||
-              (prev_row[i - 1] == 0 && next_row[i + 1] == 0) ||
-              (next_row[i - 1] == 0 && prev_row[i + 1] == 0))
-          {
-            output_row[i] = 0;
-          }
-        }
-      }
-    }
-  }
+  } // i
 }
 
 const cv::Mat &ImageProcessingEngine::GetSourceImage()
 {
+  return source_image_;
+}
+
+const cv::Mat &ImageProcessingEngine::GetSourceImage(int image)
+{
+  RetrieveSourceImage(image);
   return source_image_;
 }
 
