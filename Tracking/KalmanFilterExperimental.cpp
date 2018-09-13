@@ -236,9 +236,12 @@ void KalmanFilterExperimental::PerformEstimation(int image_idx,
 	DeleteLongLostTargets(targets);
 	CorrectForOrientationUniqueness(targets);
 
+	image_processing_engine_.RetrieveSourceImage(image_idx);
+	//image = image_processing_engine_.GetSourceImage();
+
 	SaveTargets(kalman_filter_output_file_, image_idx, targets);
 	SaveTargetsMatlab(kalman_filter_matlab_output_file_, image_idx, targets);
-	//  SaveImages(image_idx, targets);
+	SaveImages(image_idx, targets);
 
 	std::cout << "number of overall targets taken part: " << max_target_index_ + 1 << "; number of current targets: "
 		<< targets.size() << std::endl;
@@ -404,23 +407,33 @@ void KalmanFilterExperimental::FillHolesInMaps(
 	std::map<int, std::vector<int>> &timestamps)
 {
 	std::map<int, std::vector<Eigen::VectorXf>>::iterator traj_it;
-	for (traj_it = trajectories.begin(); traj_it != trajectories.end();)
+	for (traj_it = trajectories.begin(); traj_it != trajectories.end();++traj_it)
 	{
-		auto cur_traj_it = traj_it;
-		auto next_traj_it = ++traj_it;
+		//auto cur_traj_it = traj_it;
+		auto next_traj_it = std::next(traj_it);
 		if (next_traj_it != trajectories.end())
 		{
-			if (next_traj_it->first - cur_traj_it->first > 1)
+			if (next_traj_it->first - traj_it->first > 1)
 			{
-				//std::cout << "first  key " << cur_traj_it->first << "  " << trajectories[cur_traj_it->first][0] << std::endl;
+				//std::cout << "first  key " << traj_it->first << "  " << trajectories[traj_it->first][0] << std::endl;
 				//std::cout << "next first  key " << next_traj_it->first << "  " << trajectories[next_traj_it->first][0] << std::endl;
 				//std::cout << "last   key " << std::prev(trajectories.end())->first << "  " << trajectories[std::prev(trajectories.end())->first][0] << std::endl;
-				trajectories[cur_traj_it->first + 1] = std::prev(trajectories.end())->second;
-				timestamps[cur_traj_it->first + 1] = std::prev(timestamps.end())->second;
+				trajectories[traj_it->first + 1] = std::prev(trajectories.end())->second;
+				timestamps[traj_it->first + 1] = std::prev(timestamps.end())->second;
 				trajectories.erase(std::prev(trajectories.end()));
 				timestamps.erase(std::prev(timestamps.end()));
-				//std::cout << "second key " << (--next_traj_it)->first << "  " << trajectories[(--next_traj_it)->first][0] << std::endl;
+				//std::cout << "second key " << (std::next(traj_it))->first << "  " << trajectories[(std::next(traj_it))->first][0] << std::endl;
 			}
+		}
+	}
+	if (trajectories.begin()->first > 0)
+	{
+		for (int i = 0; i < trajectories.begin()->first; ++i)
+		{
+			trajectories[i] = std::prev(trajectories.end())->second;
+			timestamps[i] = std::prev(timestamps.end())->second;
+			trajectories.erase(std::prev(trajectories.end()));
+			timestamps.erase(std::prev(timestamps.end()));
 		}
 	}
 }
@@ -1028,7 +1041,7 @@ void KalmanFilterExperimental::SaveTrajectories(std::ofstream &file,
 		}
 		file << std::endl;
 		std::ostringstream output_image_name_buf;
-		output_image_name_buf << parameter_handler_.GetInputFolder() << parameter_handler_.GetKalmanFilterSubfolder()
+		output_image_name_buf << parameter_handler_.GetInputFolder()
 			<< parameter_handler_.GetFileName0() << std::setfill('0') << std::setw(9) << i
 			<< parameter_handler_.GetFileName1();
 		std::string output_image_name = output_image_name_buf.str();
