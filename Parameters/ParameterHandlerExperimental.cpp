@@ -7,7 +7,7 @@
 #include <fstream>
 #include <map>
 
-ParameterHandlerExperimental::ParameterHandlerExperimental(const std::string& file_name)
+ParameterHandlerExperimental::ParameterHandlerExperimental(const std::string &file_name)
 {
 //  std::ifstream parameters_file("/Users/nikita/CLionProjects/sprMultiTargetTracking/Parameters/ConfigExperimental.cfg", std::ios::in);
   std::ifstream parameters_file(file_name, std::ios::in);
@@ -59,6 +59,10 @@ ParameterHandlerExperimental::ParameterHandlerExperimental(const std::string& fi
   secondary_data_association_cost_ = parameters_dictionary["secondary_data_association_cost"];
   height_to_width_ratio_ = parameters_dictionary["height_to_width_ratio"];
   center_of_mass_distance_ = parameters_dictionary["center_of_mass_distance"];
+  roi_margin_ = (int) parameters_dictionary["roi_margin"];
+  nl_means_denoising_h_ = parameters_dictionary["nl_means_denoising_h"];
+  nl_means_denoising_template_window_size_ = (int) parameters_dictionary["nl_means_denoising_template_window_size"];
+  nl_means_denoising_search_window_size_ = (int) parameters_dictionary["nl_means_denoising_search_window_size"];
 }
 
 ParameterHandlerExperimental::~ParameterHandlerExperimental()
@@ -81,7 +85,7 @@ const std::string &ParameterHandlerExperimental::GetFileName1()
   return file_name_1_;
 }
 
-const std::string& ParameterHandlerExperimental::GetOriginalImagesSubfolder()
+const std::string &ParameterHandlerExperimental::GetOriginalImagesSubfolder()
 {
   return original_images_subfolder_;
 }
@@ -121,7 +125,7 @@ const std::string &ParameterHandlerExperimental::GetTrackLinkingMatlabOutputFile
   return track_linking_matlab_output_file_name_;
 }
 
-const std::string& ParameterHandlerExperimental::GetDataAnalysisSubfolder()
+const std::string &ParameterHandlerExperimental::GetDataAnalysisSubfolder()
 {
   return data_analysis_subfolder_;
 }
@@ -229,4 +233,24 @@ Real ParameterHandlerExperimental::GetHeightToWidthRatio()
 Real ParameterHandlerExperimental::GetCenterOfMassDistance()
 {
   return center_of_mass_distance_;
+}
+
+int ParameterHandlerExperimental::GetRoiMargin()
+{
+  return roi_margin_;
+}
+
+Real ParameterHandlerExperimental::GetNlMeansDenoisingH()
+{
+  return nl_means_denoising_h_;
+}
+
+int ParameterHandlerExperimental::GetNlMeansDenoisingTemplateWindowSize()
+{
+  return nl_means_denoising_template_window_size_;
+}
+
+int ParameterHandlerExperimental::GetNlMeansDenoisingSearchWindowSize()
+{
+  return nl_means_denoising_search_window_size_;
 }

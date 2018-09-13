@@ -164,15 +164,12 @@ void ImageProcessingEngine::IncreaseContrast(const cv::Mat &I, cv::Mat &O)
 
 void ImageProcessingEngine::SubtractBackgroundNoise(const cv::Mat &I, cv::Mat &O)
 {
-  int h = 2 * 27 + 1;
-  int template_window_size = 7;
-  int search_window_size = 21;
   blurred_background_image_ = I.clone();
   cv::fastNlMeansDenoising(blurred_background_image_.clone(),
                            blurred_background_image_,
-                           h,
-                           template_window_size,
-                           search_window_size);
+                           parameter_handler_.GetNlMeansDenoisingH(),
+                           parameter_handler_.GetNlMeansDenoisingTemplateWindowSize(),
+                           parameter_handler_.GetNlMeansDenoisingSearchWindowSize());
   O = I - blurred_background_image_;
 }
 
@@ -459,7 +456,7 @@ void ImageProcessingEngine::SaveDetectedObjects(int image, std::vector<Eigen::Ve
 
 bool ImageProcessingEngine::IsContourInRoi(const std::vector<cv::Point> &contour)
 {
-  int margin = 50;
+  int margin = parameter_handler_.GetRoiMargin();
   std::vector<cv::Point> roi =
       {
           cv::Point(margin, margin),

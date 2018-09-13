@@ -48,6 +48,10 @@ class ParameterHandlerExperimental
   Real GetSecondaryDataAssociationCost();
   Real GetHeightToWidthRatio();
   Real GetCenterOfMassDistance();
+  int GetRoiMargin();
+  Real GetNlMeansDenoisingH();
+  int GetNlMeansDenoisingTemplateWindowSize();
+  int GetNlMeansDenoisingSearchWindowSize();
 
  private:
 
@@ -85,6 +89,10 @@ class ParameterHandlerExperimental
   Real secondary_data_association_cost_;
   Real height_to_width_ratio_;
   Real center_of_mass_distance_;
+  int roi_margin_;
+  Real nl_means_denoising_h_;
+  int nl_means_denoising_template_window_size_;
+  int nl_means_denoising_search_window_size_;
 
 };
 

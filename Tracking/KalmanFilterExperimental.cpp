@@ -436,7 +436,6 @@ void KalmanFilterExperimental::PerformDataAssociation(const std::map<int, Eigen:
 {
   std::vector<std::vector<CostInt>> cost_matrix(n_max_dim, std::vector<CostInt>(n_max_dim, 0));
   CostInt max_cost = InitializeCostMatrix(targets, detections, cost_matrix, target_indexes);
-//  std::vector<int> assignments_by_distance(assignments[0]);
   HungarianAlgorithm hungarian_algorithm(n_max_dim, cost_matrix);
   hungarian_algorithm.Start(assignments, costs);
   std::for_each(costs.begin(),
@@ -445,19 +444,6 @@ void KalmanFilterExperimental::PerformDataAssociation(const std::map<int, Eigen:
                 {
                   c = CostInt((max_cost - c) / costs_order_of_magnitude_);
                 });
-
-//  cost_matrix = std::vector<std::vector<CostInt>>(n_max_dim, std::vector<CostInt>(n_max_dim, 0));
-//  CostInt max_cost_by_area = InitializeCostMatrixOnArea(targets, detections, cost_matrix, target_indexes);
-////  std::vector<int> assignments_by_area(assignments[1]);
-////  std::vector<CostInt> costs_by_area(n_max_dim);
-//  HungarianAlgorithm hungarian_algorithm_2(n_max_dim, cost_matrix);
-//  hungarian_algorithm_2.Start(assignments[1], costs[1]);
-//  std::for_each(costs[1].begin(),
-//                costs[1].end(),
-//                [&](CostInt &c)
-//                {
-//                  c = CostInt((max_cost_by_area - c) / costs_order_of_magnitude_);
-//                });
 }
 
 void KalmanFilterExperimental::UnassignUnrealisticTargets(const std::map<int, Eigen::VectorXf> &targets,
@@ -487,7 +473,8 @@ void KalmanFilterExperimental::UnassignUnrealisticTargets(const std::map<int, Ei
       Real dist = std::sqrt(d_x * d_x + d_y * d_y);
       Real area_increase = std::max(target(4), detection(4)) / std::min(target(4), detection(4));
 
-      if ((dist > parameter_handler_.GetDataAssociationCost()) || (area_increase > 1.5)) // in pixels
+      if ((dist > parameter_handler_.GetDataAssociationCost()))
+//          || (area_increase > 1.5)) // in pixels
       {
         assignments[i] = -1;
       }
@@ -909,7 +896,7 @@ CostInt KalmanFilterExperimental::InitializeCostMatrix(const std::map<int, Eigen
   Real dist = 0.0;
 //  Real max_dist = Real(std::sqrt(parameter_handler_.GetSubimageXSize() * parameter_handler_.GetSubimageXSize()
 //                                     + parameter_handler_.GetSubimageYSize() * parameter_handler_.GetSubimageYSize()));
-  Real area_increase = 0.0;
+//  Real area_increase = 0.0;
   for (std::map<int, Eigen::VectorXf>::const_iterator it = targets.begin(); it != targets.end(); ++it, ++i)
   {
     target_indexes.push_back(it->first);
@@ -921,16 +908,16 @@ CostInt KalmanFilterExperimental::InitializeCostMatrix(const std::map<int, Eigen
       d_x = (target(0) - detection(0));
       d_y = (target(1) - detection(1));
       dist = std::sqrt(d_x * d_x + d_y * d_y);
-      area_increase = std::max(target(4), detection(4)) / std::min(target(4), detection(4));
+//      area_increase = std::max(target(4), detection(4)) / std::min(target(4), detection(4));
 //      // put only close assignment costs in the cost matrix
 //      if (dist <= parameter_handler_.GetDataAssociationCost())
 //      {
-//        cost = dist; // Euclidean norm from a target to a detection
+      cost = dist; // Euclidean norm from a target to a detection
 //      } else
 //      {
 //        cost = max_dist;
 //      }
-      cost = dist * area_increase;
+//      cost = dist * area_increase;
 
       cost_matrix[i][j] = CostInt(cost * costs_order_of_magnitude_);
       if (max_cost < cost)
