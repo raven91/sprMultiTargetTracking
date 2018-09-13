@@ -63,14 +63,14 @@ class KalmanFilterExperimental
                               const std::vector<Eigen::VectorXf> &detections,
                               int n_max_dim,
                               std::vector<int> &target_indexes,
-                              std::vector<std::vector<CostInt>> &cost_matrix,
                               std::vector<int> &assignments,
                               std::vector<CostInt> &costs);
   void UnassignUnrealisticTargets(const std::map<int, Eigen::VectorXf> &targets,
-                                  const std::vector<Eigen::VectorXf> &detections,
-                                  int n_max_dim,
-                                  std::vector<int> &assignments,
-                                  std::vector<CostInt> &costs);
+                                    const std::vector<Eigen::VectorXf> &detections,
+                                    int n_max_dim,
+                                    std::vector<int> &assignments,
+                                    std::vector<CostInt> &costs,
+                                    const std::vector<int> &target_indexes);
   void ComputePosteriorEstimate(std::map<int, Eigen::VectorXf> &targets,
                                 const std::vector<Eigen::VectorXf> &detections,
                                 Eigen::MatrixXf &P_estimate,
@@ -109,7 +109,9 @@ class KalmanFilterExperimental
   void SaveTargetsMatlab(std::ofstream &file, int image_idx, const std::map<int, Eigen::VectorXf> &targets);
   void SaveTrajectories(std::ofstream &file, std::map<int, std::vector<Eigen::VectorXf>> &trajectories);
   void SaveTrajectoriesMatlab(std::ofstream &file, std::map<int, std::vector<Eigen::VectorXf>> &trajectories);
-  void SaveImages(int image_idx, const std::map<int, Eigen::VectorXf> &targets);
+  void SaveImages(int image_idx,
+                    const std::map<int, Eigen::VectorXf> &targets,
+                    const Eigen::MatrixXf &P);
 
   CostInt InitializeCostMatrix(const std::map<int, Eigen::VectorXf> &targets,
                                const std::vector<Eigen::VectorXf> &detections,

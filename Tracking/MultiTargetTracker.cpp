@@ -31,6 +31,7 @@ void MultitargetTracker::StartOnExperimentalData()
   ImageProcessingEngine image_processing_engine(parameter_handler);
   image_processing_engine.CreateNewImageProcessingOutputFile(parameter_handler);
   KalmanFilterExperimental kalman_filter(parameter_handler, image_processing_engine);
+  kalman_filter.CreateNewKalmanFilterOutputFiles(parameter_handler);
 
   image_processing_engine.RetrieveBacterialData(parameter_handler.GetFirstImage(), detections_);
   kalman_filter.InitializeTargets(targets_, detections_);

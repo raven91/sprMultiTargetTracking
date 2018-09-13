@@ -14,9 +14,12 @@
 #include <numeric>   // std::iota
 #include <random>
 #include <iomanip>   // std::setfill, std::setw
+#include <complex>
 
 #include <opencv2/highgui/highgui.hpp>
 #include <opencv2/imgproc/imgproc.hpp>
+
+#include <eigen3/Eigen/Eigenvalues>
 
 KalmanFilterExperimental::KalmanFilterExperimental(ParameterHandlerExperimental &parameter_handler,
                                                    ImageProcessingEngine &image_processing_engine) :
@@ -24,7 +27,7 @@ KalmanFilterExperimental::KalmanFilterExperimental(ParameterHandlerExperimental 
     image_processing_engine_(image_processing_engine),
     costs_order_of_magnitude_(1000.0),
     unmatched_(),
-    max_prediction_time_(2),
+    max_prediction_time_(0),
     max_target_index_(0)
 {
 
@@ -90,9 +93,11 @@ void KalmanFilterExperimental::InitializeTargets(std::map<int, Eigen::VectorXf> 
   }
   max_target_index_ = last_index;
 
+  CorrectForOrientationUniqueness(targets);
+
   SaveTargets(kalman_filter_output_file_, parameter_handler_.GetFirstImage(), targets);
   SaveTargetsMatlab(kalman_filter_matlab_output_file_, parameter_handler_.GetFirstImage(), targets);
-  SaveImages(parameter_handler_.GetFirstImage(), targets);
+  SaveImages(parameter_handler_.GetFirstImage(), targets, Eigen::MatrixXf::Identity(kNumOfStateVars, kNumOfStateVars));
 }
 
 void KalmanFilterExperimental::InitializeTargets(std::map<int, Eigen::VectorXf> &targets, std::ifstream &file)
@@ -123,6 +128,8 @@ void KalmanFilterExperimental::InitializeTargets(std::map<int, Eigen::VectorXf> 
     }
     max_target_index_ = last_index;
   } while (time_idx < parameter_handler_.GetFirstImage());
+
+  CorrectForOrientationUniqueness(targets);
 
   SaveTargets(kalman_filter_output_file_, parameter_handler_.GetFirstImage(), targets);
   SaveTargetsMatlab(kalman_filter_matlab_output_file_, parameter_handler_.GetFirstImage(), targets);
@@ -202,10 +209,14 @@ void KalmanFilterExperimental::PerformEstimation(int image_idx,
   A(0, 2) = A(1, 3) = dt;
   H(0, 0) = H(1, 1) = 1.0;
 
-  W(0, 0) = W(1, 1) = dt * dt * dt * dt / 4.0f;
-  W(2, 2) = W(3, 3) = dt * dt;
-  W(0, 2) = W(1, 3) = W(2, 0) = W(3, 1) = dt * dt * dt / 2.0f;
-  Q(0, 0) = Q(1, 1) = dt;
+//  W(0, 0) = W(1, 1) = dt * dt * dt * dt / 4.0f;
+//  W(2, 2) = W(3, 3) = dt * dt;
+//  W(0, 2) = W(1, 3) = W(2, 0) = W(3, 1) = dt * dt * dt / 2.0f;
+//  Q(0, 0) = Q(1, 1) = dt;
+  W(0, 0) = W(1, 1) = 10.0 / 3.0 * 2.0 * dt;
+  W(2, 2) = W(3, 3) = 5.0 / 3.0 * 2.0 * dt;
+  W(0, 2) = W(1, 3) = W(2, 0) = W(3, 1) = 7.5 / 3.0 * 2.0 * dt;
+  Q(0, 0) = Q(1, 1) = 20.0;
 
   P_estimate = W;
   ComputePriorEstimate(targets, P_estimate, A, W, H);
@@ -215,12 +226,11 @@ void KalmanFilterExperimental::PerformEstimation(int image_idx,
   {
     n_max_dim = (int) std::max(targets.size(), detections.size());
     std::vector<int> target_indexes;
-    std::vector<std::vector<CostInt>> cost_matrix(n_max_dim, std::vector<CostInt>(n_max_dim, 0));
     std::vector<int> assignments(n_max_dim, -1);
     std::vector<CostInt> costs(n_max_dim);
 
-    PerformDataAssociation(targets, detections, n_max_dim, target_indexes, cost_matrix, assignments, costs);
-    UnassignUnrealisticTargets(targets, detections, n_max_dim, assignments, costs);
+    PerformDataAssociation(targets, detections, n_max_dim, target_indexes, assignments, costs);
+    UnassignUnrealisticTargets(targets, detections, n_max_dim, assignments, costs, target_indexes);
     ComputePosteriorEstimate(targets, detections, P_estimate, K, H, assignments, target_indexes);
     RemoveRecapturedTargetsFromUnmatched(targets, assignments, target_indexes);
     AddNewTargets(targets, detections, assignments);
@@ -235,7 +245,7 @@ void KalmanFilterExperimental::PerformEstimation(int image_idx,
 
   SaveTargets(kalman_filter_output_file_, image_idx, targets);
   SaveTargetsMatlab(kalman_filter_matlab_output_file_, image_idx, targets);
-//  SaveImages(image_idx, targets);
+  SaveImages(image_idx, targets, P_estimate);
 
   std::cout << "number of overall targets taken part: " << max_target_index_ + 1 << "; number of current targets: "
             << targets.size() << std::endl;
@@ -421,11 +431,12 @@ void KalmanFilterExperimental::PerformDataAssociation(const std::map<int, Eigen:
                                                       const std::vector<Eigen::VectorXf> &detections,
                                                       int n_max_dim,
                                                       std::vector<int> &target_indexes,
-                                                      std::vector<std::vector<CostInt>> &cost_matrix,
                                                       std::vector<int> &assignments,
                                                       std::vector<CostInt> &costs)
 {
+  std::vector<std::vector<CostInt>> cost_matrix(n_max_dim, std::vector<CostInt>(n_max_dim, 0));
   CostInt max_cost = InitializeCostMatrix(targets, detections, cost_matrix, target_indexes);
+//  std::vector<int> assignments_by_distance(assignments[0]);
   HungarianAlgorithm hungarian_algorithm(n_max_dim, cost_matrix);
   hungarian_algorithm.Start(assignments, costs);
   std::for_each(costs.begin(),
@@ -434,20 +445,52 @@ void KalmanFilterExperimental::PerformDataAssociation(const std::map<int, Eigen:
                 {
                   c = CostInt((max_cost - c) / costs_order_of_magnitude_);
                 });
+
+//  cost_matrix = std::vector<std::vector<CostInt>>(n_max_dim, std::vector<CostInt>(n_max_dim, 0));
+//  CostInt max_cost_by_area = InitializeCostMatrixOnArea(targets, detections, cost_matrix, target_indexes);
+////  std::vector<int> assignments_by_area(assignments[1]);
+////  std::vector<CostInt> costs_by_area(n_max_dim);
+//  HungarianAlgorithm hungarian_algorithm_2(n_max_dim, cost_matrix);
+//  hungarian_algorithm_2.Start(assignments[1], costs[1]);
+//  std::for_each(costs[1].begin(),
+//                costs[1].end(),
+//                [&](CostInt &c)
+//                {
+//                  c = CostInt((max_cost_by_area - c) / costs_order_of_magnitude_);
+//                });
 }
 
 void KalmanFilterExperimental::UnassignUnrealisticTargets(const std::map<int, Eigen::VectorXf> &targets,
                                                           const std::vector<Eigen::VectorXf> &detections,
                                                           int n_max_dim,
                                                           std::vector<int> &assignments,
-                                                          std::vector<CostInt> &costs)
+                                                          std::vector<CostInt> &costs,
+                                                          const std::vector<int> &target_indexes)
 {
-  // if a cost is too high or if the assignment is into an imaginary detection
+  // if the assignment is into an imaginary detection
   for (int i = 0; i < targets.size(); ++i)
   {
-    if (costs[i] > parameter_handler_.GetDataAssociationCost() || assignments[i] >= detections.size()) // in pixels
+
+  }
+  // if a cost is too high
+  for (int i = 0; i < targets.size(); ++i)
+  {
+    if (assignments[i] >= detections.size())
     {
       assignments[i] = -1;
+    } else
+    {
+      Eigen::VectorXf target = targets.at(target_indexes[i]);
+      Eigen::VectorXf detection = detections[assignments[i]];
+      Real d_x = (target(0) - detection(0));
+      Real d_y = (target(1) - detection(1));
+      Real dist = std::sqrt(d_x * d_x + d_y * d_y);
+      Real area_increase = std::max(target(4), detection(4)) / std::min(target(4), detection(4));
+
+      if ((dist > parameter_handler_.GetDataAssociationCost()) || (area_increase > 1.5)) // in pixels
+      {
+        assignments[i] = -1;
+      }
     }
   }
   // if the assignment is from an imaginary target
@@ -504,20 +547,6 @@ void KalmanFilterExperimental::MarkLostTargetsAsUnmatched(std::map<int, Eigen::V
       }
     }
   }
-//    for (int i = 0; i < additional_target_indexes.size(); ++i)
-//    {
-//      if (additional_assignments[i] == -1)
-//      {
-//        if (unmatched_.find(additional_target_indexes[i]) != unmatched_.end())
-//        {
-//          ++unmatched_[additional_target_indexes[i]];
-//        } else
-//        {
-//          unmatched_[additional_target_indexes[i]] = 1;
-//        }
-//      }
-//    }
-//  }
 }
 
 void KalmanFilterExperimental::RemoveRecapturedTargetsFromUnmatched(std::map<int, Eigen::VectorXf> &targets,
@@ -600,10 +629,14 @@ void KalmanFilterExperimental::CorrectForOrientationUniqueness(std::map<int, Eig
     velocity_i = x_i.segment(2, 2);
     orientation_i << std::cosf(x_i[5]), std::sinf(x_i[5]);
 
-    // in order to determine the orientation vector uniquely, we assume the angle difference between the orientation and velocity is < \pi/2
+    // in order to determine the orientation vector uniquely,
+    // we assume the angle difference between the orientation and velocity is < \pi/2
     if (velocity_i.dot(orientation_i) < 0.0f)
     {
       (it->second)[5] = WrappingModulo(x_i[5] + M_PI, 2 * M_PI);
+    } else
+    {
+      (it->second)[5] = WrappingModulo(x_i[5], 2 * M_PI);
     }
   }
 }
@@ -808,7 +841,9 @@ void KalmanFilterExperimental::SaveTrajectoriesMatlab(std::ofstream &file,
   }
 }
 
-void KalmanFilterExperimental::SaveImages(int image_idx, const std::map<int, Eigen::VectorXf> &targets)
+void KalmanFilterExperimental::SaveImages(int image_idx,
+                                          const std::map<int, Eigen::VectorXf> &targets,
+                                          const Eigen::MatrixXf &P)
 {
   cv::Mat image;
   image = image_processing_engine_.GetSourceImage();
@@ -818,20 +853,36 @@ void KalmanFilterExperimental::SaveImages(int image_idx, const std::map<int, Eig
   cv::Scalar color(255, 127, 0);
   Real length = 0.0f;
 
-  for (std::map<int, Eigen::VectorXf>::const_iterator it = targets.begin(); it != targets.end(); ++it)
+  for (std::map<int, Eigen::VectorXf>::const_iterator cit = targets.begin(); cit != targets.end(); ++cit)
   {
-    x_i = it->second;
+    x_i = cit->second;
     center = cv::Point2f(x_i(0), x_i(1));
     cv::circle(image, center, 3, color, -1, 8);
-    cv::putText(image, std::to_string(it->first), center, cv::FONT_HERSHEY_DUPLEX, 0.4, color);
+    cv::putText(image, std::to_string(cit->first), center, cv::FONT_HERSHEY_DUPLEX, 0.4, color);
 //		cv::Point2f pt = cv::Point2f(std::cosf(x_i(5)), std::sinf(x_i(5)));
     length = std::max(x_i(6), x_i(7));
     cv::line(image,
              center,
-             center + cv::Point2f(x_i(2),
-                                  x_i(2)),//center + cv::Point2f(std::cosf(x_i(5)), std::sinf(x_i(5))) * length / 2.0f,
+             center + cv::Point2f(x_i(2), x_i(3)),
+             cv::Scalar(0, 255, 0));
+    cv::line(image,
+             center,
+             center + cv::Point2f(std::cosf(x_i(5)), std::sinf(x_i(5))) * length / 2.0f,
              cv::Scalar(255, 0, 0));
 //		std::cout << "(" << center.x << "," << center.y << ") -> (" << center.x + std::cosf(x_i(5)) * x_i(4) / 10.0f << "," << center.y + std::sinf(x_i(5)) * x_i(4) / 10.0f << ")" << std::endl;
+
+    Eigen::SelfAdjointEigenSolver<Eigen::Matrix<float, kNumOfStateVars, kNumOfStateVars>> s(P);
+    Eigen::Matrix<std::complex<float>, kNumOfStateVars, 1> eigenvalues = s.eigenvalues();
+    Eigen::Matrix<std::complex<float>, kNumOfStateVars, kNumOfStateVars> eigenvectors = s.eigenvectors();
+
+    float angle = std::atan2(std::real(eigenvectors(1, 0)), std::real(eigenvectors(0, 0))) * 180 / M_PI;
+    cv::ellipse(image,
+                center,
+                cv::Size(3 * std::real(eigenvalues(0)), 3 * std::real(eigenvalues(1))),
+                std::atan2(std::real(eigenvectors(1, 0)), std::real(eigenvectors(0, 0))) * 180 / M_PI,
+                0,
+                360,
+                cv::Scalar(255, 172, 0));
   }
 
   std::ostringstream output_image_name_buf;
@@ -856,8 +907,9 @@ CostInt KalmanFilterExperimental::InitializeCostMatrix(const std::map<int, Eigen
   int i = 0;
   Real d_x = 0.0, d_y = 0.0;
   Real dist = 0.0;
-  Real max_dist = Real(std::sqrt(parameter_handler_.GetSubimageXSize() * parameter_handler_.GetSubimageXSize()
-                                     + parameter_handler_.GetSubimageYSize() * parameter_handler_.GetSubimageYSize()));
+//  Real max_dist = Real(std::sqrt(parameter_handler_.GetSubimageXSize() * parameter_handler_.GetSubimageXSize()
+//                                     + parameter_handler_.GetSubimageYSize() * parameter_handler_.GetSubimageYSize()));
+  Real area_increase = 0.0;
   for (std::map<int, Eigen::VectorXf>::const_iterator it = targets.begin(); it != targets.end(); ++it, ++i)
   {
     target_indexes.push_back(it->first);
@@ -868,16 +920,17 @@ CostInt KalmanFilterExperimental::InitializeCostMatrix(const std::map<int, Eigen
       detection = detections[j];
       d_x = (target(0) - detection(0));
       d_y = (target(1) - detection(1));
-
-      // put only close assignment costs in the cost matrix
       dist = std::sqrt(d_x * d_x + d_y * d_y);
-      if (dist <= parameter_handler_.GetDataAssociationCost())
-      {
-        cost = dist; // Euclidean norm from a target to a detection
-      } else
-      {
-        cost = max_dist;
-      }
+      area_increase = std::max(target(4), detection(4)) / std::min(target(4), detection(4));
+//      // put only close assignment costs in the cost matrix
+//      if (dist <= parameter_handler_.GetDataAssociationCost())
+//      {
+//        cost = dist; // Euclidean norm from a target to a detection
+//      } else
+//      {
+//        cost = max_dist;
+//      }
+      cost = dist * area_increase;
 
       cost_matrix[i][j] = CostInt(cost * costs_order_of_magnitude_);
       if (max_cost < cost)
@@ -895,6 +948,7 @@ CostInt KalmanFilterExperimental::InitializeCostMatrix(const std::map<int, Eigen
       cost_matrix[i][j] = CostInt(max_cost * costs_order_of_magnitude_) - cost_matrix[i][j];
     }
   }
+  // the complementary values are left zero as needed for the max cost problem
 
   return CostInt(max_cost * costs_order_of_magnitude_);
 }
