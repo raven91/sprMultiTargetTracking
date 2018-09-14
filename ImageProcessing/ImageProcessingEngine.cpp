@@ -464,7 +464,7 @@ bool ImageProcessingEngine::IsContourInRoi(const std::vector<cv::Point> &contour
           cv::Point(parameter_handler_.GetSubimageXSize() - margin, parameter_handler_.GetSubimageYSize() - margin),
           cv::Point(parameter_handler_.GetSubimageXSize() - margin, margin)
       };
-  cv::Mat mask_with_roi =
+/*  cv::Mat mask_with_roi =
       cv::Mat::zeros(parameter_handler_.GetSubimageXSize(), parameter_handler_.GetSubimageYSize(), CV_8UC1);
   cv::rectangle(mask_with_roi, roi[0], roi[2], 255, CV_FILLED, 8, 0);
 //  cv::namedWindow("roi", cv::WINDOW_AUTOSIZE);
@@ -494,6 +494,11 @@ bool ImageProcessingEngine::IsContourInRoi(const std::vector<cv::Point> &contour
 //  cv::waitKey(1);
 
   return (cv::sum(mask)[0] > 0.0);
+  */
+  cv::Moments mu = cv::moments(contour, true);
+  cv::Point2f center = cv::Point2f(mu.m10 / mu.m00, mu.m01 / mu.m00);
+
+  return cv::pointPolygonTest(roi, center, false) >= 0.0;
 }
 
 void ImageProcessingEngine::AnalyzeConvexityDefects(const cv::Mat &I, cv::Mat &O)
@@ -506,9 +511,9 @@ void ImageProcessingEngine::AnalyzeConvexityDefects(const cv::Mat &I, cv::Mat &O
     if (contour.size() > 2) // convex hull may be computed for contours with number of points > 2
     {
       std::vector<int> convex_hull_indices;
-      std::vector<cv::Point> convex_hull;
+//      std::vector<cv::Point> convex_hull;
       cv::convexHull(contour, convex_hull_indices, false, false);
-      cv::convexHull(contour, convex_hull, false, true);
+//      cv::convexHull(contour, convex_hull, false, true);
 //      if (cv::contourArea(convex_hull) / cv::contourArea(contour) > parameter_handler_.GetAreaIncrease())
       if (!cv::isContourConvex(contour))
       {
@@ -524,7 +529,7 @@ void ImageProcessingEngine::AnalyzeConvexityDefects(const cv::Mat &I, cv::Mat &O
             const cv::Point2f &end_point = contour[(*cd_it)[1]];
             const cv::Point2f &farthest_point = contour[(*cd_it)[2]];
 
-            cv::Point2f middle_point(0.5 * (start_point.x + end_point.x), 0.5 * (start_point.y + end_point.y));
+            cv::Point2f middle_point(0.5f * (start_point.x + end_point.x), 0.5f * (start_point.y + end_point.y));
             cv::Point2f inward_cutting_vec = farthest_point - middle_point;
             double inward_cutting_vec_norm =
                 std::sqrt(inward_cutting_vec.x * inward_cutting_vec.x + inward_cutting_vec.y * inward_cutting_vec.y);
@@ -533,7 +538,7 @@ void ImageProcessingEngine::AnalyzeConvexityDefects(const cv::Mat &I, cv::Mat &O
             do
             {
               intersection_length += 1.0;
-            } while (cv::pointPolygonTest(convex_hull,
+            } while (cv::pointPolygonTest(contour,
                                           middle_point
                                               + inward_cutting_vec * (inward_cutting_vec_norm + intersection_length),
                                           false) >= 0.0);

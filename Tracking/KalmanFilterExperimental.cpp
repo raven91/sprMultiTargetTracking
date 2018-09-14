@@ -27,7 +27,7 @@ KalmanFilterExperimental::KalmanFilterExperimental(ParameterHandlerExperimental 
     image_processing_engine_(image_processing_engine),
     costs_order_of_magnitude_(1000.0),
     unmatched_(),
-    max_prediction_time_(0),
+    max_prediction_time_(1),
     max_target_index_(0)
 {
 
@@ -453,25 +453,19 @@ void KalmanFilterExperimental::UnassignUnrealisticTargets(const std::map<int, Ei
                                                           std::vector<CostInt> &costs,
                                                           const std::vector<int> &target_indexes)
 {
-  // if the assignment is into an imaginary detection
   for (int i = 0; i < targets.size(); ++i)
   {
-
-  }
-  // if a cost is too high
-  for (int i = 0; i < targets.size(); ++i)
-  {
-    if (assignments[i] >= detections.size())
+    if (assignments[i] >= detections.size()) // if the assignment is into an imaginary detection
     {
       assignments[i] = -1;
-    } else
+    } else // if a cost is too high
     {
       Eigen::VectorXf target = targets.at(target_indexes[i]);
       Eigen::VectorXf detection = detections[assignments[i]];
       Real d_x = (target(0) - detection(0));
       Real d_y = (target(1) - detection(1));
       Real dist = std::sqrt(d_x * d_x + d_y * d_y);
-      Real area_increase = std::max(target(4), detection(4)) / std::min(target(4), detection(4));
+//      Real area_increase = std::max(target(4), detection(4)) / std::min(target(4), detection(4));
 
       if ((dist > parameter_handler_.GetDataAssociationCost()))
 //          || (area_increase > 1.5)) // in pixels
