@@ -10,6 +10,8 @@
 #include "KalmanFilterSynthetic.hpp"
 #include "../Parameters/PeriodicBoundaryConditionsConfiguration.hpp"
 
+#include <chrono>
+
 MultitargetTracker::MultitargetTracker() :
     targets_(),
     detections_(),
@@ -38,8 +40,11 @@ void MultitargetTracker::StartOnExperimentalData()
 
   for (int i = parameter_handler.GetFirstImage() + 1; i <= parameter_handler.GetLastImage(); ++i)
   {
+//    std::chrono::time_point<std::chrono::system_clock> timer = std::chrono::system_clock::now();
     image_processing_engine.RetrieveBacterialData(i, detections_);
     kalman_filter.PerformEstimation(i, targets_, detections_);
+//    std::chrono::duration<Real> elapsed_seconds = std::chrono::system_clock::now() - timer;
+//    std::cout << elapsed_seconds.count() << "s" << std::endl;
   }
 }
 

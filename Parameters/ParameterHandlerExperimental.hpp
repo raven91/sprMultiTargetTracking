@@ -36,6 +36,7 @@ class ParameterHandlerExperimental
   int GetImageSubdivisions();
   int GetBlurType();
   int GetBlurRadius();
+  int GetBlurSigma();
   int GetThresholdType();
   int GetThresholdValue();
   int GetMorphologicalOperator();
@@ -77,6 +78,7 @@ class ParameterHandlerExperimental
   int image_subdivisions_;
   int blur_type_;
   int blur_radius_;
+  int blur_sigma_;
   int threshold_type_;
   int threshold_value_;
   int morphological_operator_;

@@ -165,11 +165,16 @@ void ImageProcessingEngine::IncreaseContrast(const cv::Mat &I, cv::Mat &O)
 void ImageProcessingEngine::SubtractBackgroundNoise(const cv::Mat &I, cv::Mat &O)
 {
   blurred_background_image_ = I.clone();
-  cv::fastNlMeansDenoising(blurred_background_image_.clone(),
-                           blurred_background_image_,
-                           parameter_handler_.GetNlMeansDenoisingH(),
-                           parameter_handler_.GetNlMeansDenoisingTemplateWindowSize(),
-                           parameter_handler_.GetNlMeansDenoisingSearchWindowSize());
+//  cv::fastNlMeansDenoising(blurred_background_image_.clone(),
+//                           blurred_background_image_,
+//                           parameter_handler_.GetNlMeansDenoisingH(),
+//                           parameter_handler_.GetNlMeansDenoisingTemplateWindowSize(),
+//                           parameter_handler_.GetNlMeansDenoisingSearchWindowSize());
+  cv::GaussianBlur(blurred_background_image_.clone(),
+      blurred_background_image_,
+      cv::Size(2 * parameter_handler_.GetBlurRadius() + 1, 2 * parameter_handler_.GetBlurRadius() + 1),
+      parameter_handler_.GetBlurSigma(),
+      parameter_handler_.GetBlurSigma());
   O = I - blurred_background_image_;
 }
 

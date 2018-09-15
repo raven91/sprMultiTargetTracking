@@ -47,6 +47,7 @@ ParameterHandlerExperimental::ParameterHandlerExperimental(const std::string &fi
   image_subdivisions_ = (int) parameters_dictionary["image_subdivisions"];
   blur_type_ = (int) parameters_dictionary["blur_type"];
   blur_radius_ = (int) parameters_dictionary["blur_radius"];
+  blur_sigma_ = (int) parameters_dictionary["blur_sigma"];
   threshold_type_ = (int) parameters_dictionary["threshold_type"];
   threshold_value_ = (int) parameters_dictionary["threshold_value"];
   morphological_operator_ = (int) parameters_dictionary["morphological_operator"];
@@ -173,6 +174,11 @@ int ParameterHandlerExperimental::GetBlurType()
 int ParameterHandlerExperimental::GetBlurRadius()
 {
   return blur_radius_;
+}
+
+int ParameterHandlerExperimental::GetBlurSigma()
+{
+  return blur_sigma_;
 }
 
 int ParameterHandlerExperimental::GetThresholdType()
