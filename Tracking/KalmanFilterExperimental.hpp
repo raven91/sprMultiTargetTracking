@@ -41,24 +41,26 @@ class KalmanFilterExperimental
 
   ParameterHandlerExperimental &parameter_handler_;
   ImageProcessingEngine &image_processing_engine_;
+
   std::ofstream kalman_filter_output_file_;
   std::ofstream kalman_filter_matlab_output_file_;
   std::ofstream track_linking_output_file_;
   std::ofstream track_linking_matlab_output_file_;
+
   std::map<int, int> unmatched_;
   int max_prediction_time_;
   int max_target_index_;
   Real costs_order_of_magnitude_;
+  Eigen::MatrixXf I_;
+  Eigen::MatrixXf A_;
+  Eigen::MatrixXf W_;
+  Eigen::MatrixXf H_;
+  Eigen::MatrixXf Q_;
+  Eigen::MatrixXf P_;
+  Eigen::MatrixXf K_;
 
-  void ComputePriorEstimate(std::map<int, Eigen::VectorXf> &targets,
-                            Eigen::MatrixXf &P_estimate,
-                            const Eigen::MatrixXf &A,
-                            const Eigen::MatrixXf &W,
-                            const Eigen::MatrixXf &H);
-  void ComputeKalmanGainMatrix(Eigen::MatrixXf &K,
-                               const Eigen::MatrixXf &P_estimate,
-                               const Eigen::MatrixXf &H,
-                               const Eigen::MatrixXf &Q);
+  void ComputePriorEstimate(std::map<int, Eigen::VectorXf> &targets);
+  void ComputeKalmanGainMatrix();
   void PerformDataAssociation(const std::map<int, Eigen::VectorXf> &targets,
                               const std::vector<Eigen::VectorXf> &detections,
                               int n_max_dim,
@@ -72,12 +74,9 @@ class KalmanFilterExperimental
                                     std::vector<CostInt> &costs,
                                     const std::vector<int> &target_indexes);
   void ComputePosteriorEstimate(std::map<int, Eigen::VectorXf> &targets,
-                                const std::vector<Eigen::VectorXf> &detections,
-                                Eigen::MatrixXf &P_estimate,
-                                const Eigen::MatrixXf &K,
-                                const Eigen::MatrixXf &H,
-                                const std::vector<int> &assignments,
-                                const std::vector<int> &target_indexes);
+                                  const std::vector<Eigen::VectorXf> &detections,
+                                  const std::vector<int> &assignments,
+                                  const std::vector<int> &target_indexes);
   void MarkLostTargetsAsUnmatched(std::map<int, Eigen::VectorXf> &targets,
                                   const std::vector<int> &assignments,
                                   const std::vector<int> &target_indexes);
@@ -109,9 +108,7 @@ class KalmanFilterExperimental
   void SaveTargetsMatlab(std::ofstream &file, int image_idx, const std::map<int, Eigen::VectorXf> &targets);
   void SaveTrajectories(std::ofstream &file, std::map<int, std::vector<Eigen::VectorXf>> &trajectories);
   void SaveTrajectoriesMatlab(std::ofstream &file, std::map<int, std::vector<Eigen::VectorXf>> &trajectories);
-  void SaveImages(int image_idx,
-                    const std::map<int, Eigen::VectorXf> &targets,
-                    const Eigen::MatrixXf &P);
+  void SaveImages(int image_idx, const std::map<int, Eigen::VectorXf> &targets);
 
   CostInt InitializeCostMatrix(const std::map<int, Eigen::VectorXf> &targets,
                                const std::vector<Eigen::VectorXf> &detections,
