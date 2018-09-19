@@ -37,32 +37,41 @@ public:
 	void PerformTrackLinking(std::map<int, std::vector<Eigen::VectorXf>> &trajectories,
 		std::map<int, std::vector<int>> &timestamps);
 
+	CostInt CountCostMatrixElementNOIntersection(std::map<int, std::vector<Eigen::VectorXf>>::iterator iter_trj_outer, std::map<int, std::vector<Eigen::VectorXf>>::iterator iter_trj_inner, int s);
+
+	CostInt CountCostMatrixElementIntersection(std::map<int, std::vector<Eigen::VectorXf>>::iterator iter_trj_outer, std::map<int, std::vector<Eigen::VectorXf>>::iterator iter_trj_inner, int Ti_e, int Tj_b);
+
+	bool CheckDistance(std::map<int, std::vector<Eigen::VectorXf>>::iterator iter_trj_outer, std::map<int, std::vector<Eigen::VectorXf>>::iterator iter_trj_inner, int sigma);
+
+	
+
 
 private:
 
 	ParameterHandlerExperimental &parameter_handler_;
 	ImageProcessingEngine &image_processing_engine_;
+
 	std::ofstream kalman_filter_output_file_;
 	std::ofstream kalman_filter_matlab_output_file_;
 	std::ofstream track_linking_output_file_;
 	std::ofstream track_linking_matlab_output_file_;
+
 	std::map<int, int> unmatched_;
 	int max_prediction_time_;
 	int max_target_index_;
 	Real costs_order_of_magnitude_;
+	Eigen::MatrixXf I_;
+	Eigen::MatrixXf A_;
+	Eigen::MatrixXf W_;
+	Eigen::MatrixXf H_;
+	Eigen::MatrixXf Q_;
+	Eigen::MatrixXf P_;
+	Eigen::MatrixXf K_;
 
 	void FillHolesInMaps(std::map<int, std::vector<Eigen::VectorXf>>& trajectories, std::map<int, std::vector<int>>& timestamps);
 
-
-	void ComputePriorEstimate(std::map<int, Eigen::VectorXf> &targets,
-		Eigen::MatrixXf &P_estimate,
-		const Eigen::MatrixXf &A,
-		const Eigen::MatrixXf &W,
-		const Eigen::MatrixXf &H);
-	void ComputeKalmanGainMatrix(Eigen::MatrixXf &K,
-		const Eigen::MatrixXf &P_estimate,
-		const Eigen::MatrixXf &H,
-		const Eigen::MatrixXf &Q);
+	void ComputePriorEstimate(std::map<int, Eigen::VectorXf> &targets);
+	void ComputeKalmanGainMatrix();
 	void PerformDataAssociation(const std::map<int, Eigen::VectorXf> &targets,
 		const std::vector<Eigen::VectorXf> &detections,
 		int n_max_dim,
@@ -74,12 +83,10 @@ private:
 		const std::vector<Eigen::VectorXf> &detections,
 		int n_max_dim,
 		std::vector<int> &assignments,
-		std::vector<CostInt> &costs);
+		std::vector<CostInt> &costs,
+		const std::vector<int> &target_indexes);
 	void ComputePosteriorEstimate(std::map<int, Eigen::VectorXf> &targets,
 		const std::vector<Eigen::VectorXf> &detections,
-		Eigen::MatrixXf &P_estimate,
-		const Eigen::MatrixXf &K,
-		const Eigen::MatrixXf &H,
 		const std::vector<int> &assignments,
 		const std::vector<int> &target_indexes);
 	void MarkLostTargetsAsUnmatched(std::map<int, Eigen::VectorXf> &targets,
@@ -108,6 +115,8 @@ private:
 		std::vector<CostInt> &costs,
 		int delta,
 		int tau);
+
+	void PerformTrajectoryContinuation(std::map<int, std::vector<Eigen::VectorXf>>::iterator outer_trajectory_iter, std::map<int, std::vector<Eigen::VectorXf>>::iterator inner_trajectory_iter, std::map<int, std::vector<int>>::iterator outer_timestamps_iter, std::map<int, std::vector<int>>::iterator inner_timestamps_iter, int s);
 
 	void SaveTargets(std::ofstream &file, int image_idx, const std::map<int, Eigen::VectorXf> &targets);
 	void SaveTargetsMatlab(std::ofstream &file, int image_idx, const std::map<int, Eigen::VectorXf> &targets);
