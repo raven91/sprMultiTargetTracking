@@ -37,12 +37,11 @@ public:
 	void PerformTrackLinking(std::map<int, std::vector<Eigen::VectorXf>> &trajectories,
 		std::map<int, std::vector<int>> &timestamps);
 
+	bool CheckDistance(std::map<int, std::vector<Eigen::VectorXf>>::iterator iter_trj_outer, std::map<int, std::vector<Eigen::VectorXf>>::iterator iter_trj_inner);
+
 	CostInt CountCostMatrixElementNOIntersection(std::map<int, std::vector<Eigen::VectorXf>>::iterator iter_trj_outer, std::map<int, std::vector<Eigen::VectorXf>>::iterator iter_trj_inner, int s);
 
 	CostInt CountCostMatrixElementIntersection(std::map<int, std::vector<Eigen::VectorXf>>::iterator iter_trj_outer, std::map<int, std::vector<Eigen::VectorXf>>::iterator iter_trj_inner, int Ti_e, int Tj_b);
-
-	bool CheckDistance(std::map<int, std::vector<Eigen::VectorXf>>::iterator iter_trj_outer, std::map<int, std::vector<Eigen::VectorXf>>::iterator iter_trj_inner, int sigma);
-
 	
 
 

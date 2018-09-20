@@ -272,7 +272,6 @@ void KalmanFilterExperimental::PerformTrackLinking(std::map<int, std::vector<Eig
 	std::map<int, std::vector<int>> &timestamps)
 {
 	int counter = 0;
-	int sigma = 50;
 	const int delta = 2;
 	const int tau = 2;
 	int n_max_dim = 0;
@@ -317,13 +316,13 @@ void KalmanFilterExperimental::PerformTrackLinking(std::map<int, std::vector<Eig
 			if (Tj_b - Ti_e >= 1 && Tj_b - Ti_e <= delta)
 			{
 
-				if (!CheckDistance(iter_trj_outer, iter_trj_inner, sigma))
+				if (CheckDistance(iter_trj_outer, iter_trj_inner) == false)
 				{
 					cost_matrix[iter_trj_outer->first][iter_trj_inner->first] = -1;
 					continue;
 				}
 				int s = Tj_b - Ti_e;
-				cost_matrix[first_trj_idx][second_trj_idx] = CountCostMatrixElementNOIntersection(iter_trj_outer, iter_trj_inner,s);
+				cost_matrix[first_trj_idx][second_trj_idx] = CountCostMatrixElementNOIntersection(iter_trj_outer, iter_trj_inner, s);
 
 				if (max_elem < cost_matrix[first_trj_idx][second_trj_idx])
 				{
@@ -335,13 +334,13 @@ void KalmanFilterExperimental::PerformTrackLinking(std::map<int, std::vector<Eig
 			if (Ti_b - Tj_e > 0 && Tj_e - Ti_b <= delta)
 			{
 
-				if (!CheckDistance(iter_trj_outer, iter_trj_inner, sigma))
+				if (CheckDistance(iter_trj_inner, iter_trj_outer) == false)
 				{
 					cost_matrix[iter_trj_outer->first][iter_trj_inner->first] = -1;
 					continue;
 				}
 				int s = Ti_b - Tj_e;
-				cost_matrix[first_trj_idx][second_trj_idx] = CountCostMatrixElementNOIntersection(iter_trj_inner, iter_trj_outer,s);
+				cost_matrix[first_trj_idx][second_trj_idx] = CountCostMatrixElementNOIntersection(iter_trj_inner, iter_trj_outer, s);
 
 				if (max_elem < cost_matrix[first_trj_idx][second_trj_idx])
 				{
@@ -352,7 +351,7 @@ void KalmanFilterExperimental::PerformTrackLinking(std::map<int, std::vector<Eig
 			// if trajectories intersect	Ti goes BEFORE Tj
 			if ((Ti_e - Tj_b >= 0) && (Ti_e - Tj_b <= tau))
 			{
-				if (!CheckDistance(iter_trj_outer, iter_trj_inner, sigma))
+				if (CheckDistance(iter_trj_outer, iter_trj_inner) == false)
 				{
 					cost_matrix[iter_trj_outer->first][iter_trj_inner->first] = -1;
 					continue;
@@ -368,7 +367,7 @@ void KalmanFilterExperimental::PerformTrackLinking(std::map<int, std::vector<Eig
 			// trajectories intersect	Ti goes AFTER Tj
 			if (Tj_e - Ti_b >= 0 && Tj_e - Ti_b <= tau)
 			{
-				if (!CheckDistance(iter_trj_outer, iter_trj_inner, sigma))
+				if (CheckDistance(iter_trj_inner, iter_trj_outer) == false)
 				{
 					cost_matrix[iter_trj_outer->first][iter_trj_inner->first] = -1;
 					continue;
@@ -404,6 +403,29 @@ void KalmanFilterExperimental::PerformTrackLinking(std::map<int, std::vector<Eig
 	FillHolesInMaps(trajectories, timestamps);
 	SaveTrajectories(track_linking_output_file_, trajectories, timestamps);
 	SaveTrajectoriesMatlab(track_linking_matlab_output_file_, trajectories, timestamps);
+}
+
+bool KalmanFilterExperimental::CheckDistance(std::map<int, std::vector<Eigen::VectorXf>>::iterator iter_trj_outer,
+	std::map<int, std::vector<Eigen::VectorXf>>::iterator iter_trj_inner)
+{
+	int sigma = 25;
+	if(((iter_trj_outer->second[iter_trj_outer->second.size() - 1](0)) < sigma) && ((iter_trj_inner->second[0](0)) < sigma))
+	{
+		return false;
+	}
+	if (((iter_trj_outer->second[iter_trj_outer->second.size() - 1](1)) < sigma) && ((iter_trj_inner->second[0](1)) < sigma))
+	{
+		return false;
+	}
+	if ((parameter_handler_.GetSubimageXSize() - (iter_trj_outer->second[iter_trj_outer->second.size() - 1](0)) < sigma) && (parameter_handler_.GetSubimageXSize() - (iter_trj_inner->second[0](0)) < sigma))
+	{
+		return false;
+	}
+	if ((parameter_handler_.GetSubimageYSize() - (iter_trj_outer->second[iter_trj_outer->second.size() - 1](1)) < sigma) && (parameter_handler_.GetSubimageYSize() - (iter_trj_inner->second[0](1)) < sigma))
+	{
+		return false;
+	}
+	return true;
 }
 
 CostInt KalmanFilterExperimental::CountCostMatrixElementNOIntersection(
@@ -489,22 +511,6 @@ CostInt KalmanFilterExperimental::CountCostMatrixElementIntersection(
 					- iter_trj_inner->second[intersection_time](1)), 2));
 	}
 	return res / (s + 1) * costs_order_of_magnitude_;
-}
-
-bool KalmanFilterExperimental::CheckDistance(std::map<int, std::vector<Eigen::VectorXf>>::iterator iter_trj_outer,
-	std::map<int, std::vector<Eigen::VectorXf>>::iterator iter_trj_inner,
-	int sigma)
-{
-	if (((iter_trj_outer->second[iter_trj_outer->second.size() - 1](0) > sigma) && (iter_trj_inner->second[0](0) > sigma))
-		|| ((iter_trj_outer->second[iter_trj_outer->second.size() - 1](1) > sigma) && (iter_trj_inner->second[0](1) > sigma))
-		|| ((parameter_handler_.GetSubimageXSize() - (iter_trj_outer->second[iter_trj_outer->second.size() - 1](0) > sigma))
-			&& (parameter_handler_.GetSubimageXSize() - (iter_trj_inner->second[0](0) > sigma)))
-		|| ((parameter_handler_.GetSubimageYSize() - (iter_trj_outer->second[iter_trj_outer->second.size() - 1](1) > sigma))
-			&& (parameter_handler_.GetSubimageYSize() - (iter_trj_inner->second[0](1) > sigma))))
-	{
-		return true;
-	}
-	else return false;
 }
 
 void KalmanFilterExperimental::FillHolesInMaps(
@@ -892,9 +898,9 @@ void KalmanFilterExperimental::PerformTrackConnecting(std::map<int, std::vector<
 			s = Ti_b - Tj_e; // trajectories NOT intersect Ti goes AFTER Tj
 
 			/// HERE perform continuation of trajectories
-					
+
 			PerformTrajectoryContinuation(inner_trajectory_iter, outer_trajectory_iter, inner_timestamps_iter, outer_timestamps_iter, s);
-			
+
 		}
 
 		// creating new trajectory by connecting previous two
