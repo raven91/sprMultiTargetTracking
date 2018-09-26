@@ -400,6 +400,7 @@ void KalmanFilterExperimental::PerformTrackLinking(std::map<int, std::vector<Eig
 		assignments,
 		costs);
 	PerformTrackConnecting(trajectories, timestamps, target_indexes, assignments, costs, delta, tau);
+	DeleteShortTrajectories(trajectories,timestamps);
 	FillHolesInMaps(trajectories, timestamps);
 	SaveTrajectories(track_linking_output_file_, trajectories, timestamps);
 	SaveTrajectoriesMatlab(track_linking_matlab_output_file_, trajectories, timestamps);
@@ -511,6 +512,28 @@ CostInt KalmanFilterExperimental::CountCostMatrixElementIntersection(
 					- iter_trj_inner->second[intersection_time](1)), 2));
 	}
 	return res / (s + 1) * costs_order_of_magnitude_;
+}
+
+void KalmanFilterExperimental::DeleteShortTrajectories(
+	std::map<int, std::vector<Eigen::VectorXf>> &trajectories,
+	std::map<int, std::vector<int>> &timestamps)
+{
+	int min_traj_length = 2;
+	for (std::map<int, std::vector<Eigen::VectorXf>>::iterator traj_it = trajectories.begin(); traj_it != trajectories.end();)
+	{
+			if (traj_it->second.size() <= min_traj_length)
+			{
+				std::map<int, std::vector<Eigen::VectorXf>>::iterator traj_it_del = traj_it;
+				traj_it = std::next(traj_it);
+				std::map<int, std::vector<int>>::iterator timest_it_del = timestamps.find(traj_it_del->first);
+				trajectories.erase(traj_it_del);
+				timestamps.erase(timest_it_del);
+			}
+			else
+			{
+				++traj_it;
+			}
+	}
 }
 
 void KalmanFilterExperimental::FillHolesInMaps(

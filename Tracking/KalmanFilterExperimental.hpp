@@ -42,6 +42,7 @@ public:
 	CostInt CountCostMatrixElementNOIntersection(std::map<int, std::vector<Eigen::VectorXf>>::iterator iter_trj_outer, std::map<int, std::vector<Eigen::VectorXf>>::iterator iter_trj_inner, int s);
 
 	CostInt CountCostMatrixElementIntersection(std::map<int, std::vector<Eigen::VectorXf>>::iterator iter_trj_outer, std::map<int, std::vector<Eigen::VectorXf>>::iterator iter_trj_inner, int Ti_e, int Tj_b);
+
 	
 
 
@@ -114,6 +115,8 @@ private:
 		std::vector<CostInt> &costs,
 		int delta,
 		int tau);
+	void DeleteShortTrajectories(std::map<int, std::vector<Eigen::VectorXf>>& trajectories, std::map<int, std::vector<int>>& timestamps);
+
 
 	void PerformTrajectoryContinuation(std::map<int, std::vector<Eigen::VectorXf>>::iterator outer_trajectory_iter, std::map<int, std::vector<Eigen::VectorXf>>::iterator inner_trajectory_iter, std::map<int, std::vector<int>>::iterator outer_timestamps_iter, std::map<int, std::vector<int>>::iterator inner_timestamps_iter, int s);
 
