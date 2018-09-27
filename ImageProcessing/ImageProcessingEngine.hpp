@@ -25,6 +25,7 @@ class ImageProcessingEngine
 
   void CreateNewImageProcessingOutputFile(ParameterHandlerExperimental &parameter_handler);
   void RetrieveBacterialData(int image, std::vector<Eigen::VectorXf> &detections);
+  void ComposeImageForFilterOutput(int image_idx, cv::Mat &image);
 
   const cv::Mat &GetSourceImage();
   const cv::Mat &GetSourceImage(int image);

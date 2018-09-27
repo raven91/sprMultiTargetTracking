@@ -64,6 +64,8 @@ ParameterHandlerExperimental::ParameterHandlerExperimental(const std::string &fi
   nl_means_denoising_h_ = parameters_dictionary["nl_means_denoising_h"];
   nl_means_denoising_template_window_size_ = (int) parameters_dictionary["nl_means_denoising_template_window_size"];
   nl_means_denoising_search_window_size_ = (int) parameters_dictionary["nl_means_denoising_search_window_size"];
+  contrast_ = parameters_dictionary["contrast"];
+  brightness_ = (int) parameters_dictionary["brightness"];
 }
 
 ParameterHandlerExperimental::~ParameterHandlerExperimental()
@@ -259,4 +261,14 @@ int ParameterHandlerExperimental::GetNlMeansDenoisingTemplateWindowSize()
 int ParameterHandlerExperimental::GetNlMeansDenoisingSearchWindowSize()
 {
   return nl_means_denoising_search_window_size_;
+}
+
+Real ParameterHandlerExperimental::GetContrast()
+{
+  return contrast_;
+}
+
+int ParameterHandlerExperimental::GetBrightness()
+{
+  return brightness_;
 }

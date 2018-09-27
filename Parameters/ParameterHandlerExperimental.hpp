@@ -53,6 +53,8 @@ class ParameterHandlerExperimental
   Real GetNlMeansDenoisingH();
   int GetNlMeansDenoisingTemplateWindowSize();
   int GetNlMeansDenoisingSearchWindowSize();
+  Real GetContrast();
+  int GetBrightness();
 
  private:
 
@@ -95,6 +97,8 @@ class ParameterHandlerExperimental
   Real nl_means_denoising_h_;
   int nl_means_denoising_template_window_size_;
   int nl_means_denoising_search_window_size_;
+  Real contrast_;
+  int brightness_;
 
 };
 

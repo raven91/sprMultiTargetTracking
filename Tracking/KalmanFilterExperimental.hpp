@@ -58,6 +58,8 @@ class KalmanFilterExperimental
   Eigen::MatrixXf Q_;
   Eigen::MatrixXf P_;
   Eigen::MatrixXf K_;
+  std::map<int, cv::Scalar> targets_colors_;
+  cv::RNG rng_; // random color generator
 
   void ComputePriorEstimate(std::map<int, Eigen::VectorXf> &targets);
   void ComputeKalmanGainMatrix();
@@ -108,7 +110,9 @@ class KalmanFilterExperimental
   void SaveTargetsMatlab(std::ofstream &file, int image_idx, const std::map<int, Eigen::VectorXf> &targets);
   void SaveTrajectories(std::ofstream &file, std::map<int, std::vector<Eigen::VectorXf>> &trajectories);
   void SaveTrajectoriesMatlab(std::ofstream &file, std::map<int, std::vector<Eigen::VectorXf>> &trajectories);
-  void SaveImages(int image_idx, const std::map<int, Eigen::VectorXf> &targets);
+  void SaveImagesWithVectors(int image_idx, const std::map<int, Eigen::VectorXf> &targets);
+  void SaveImagesWithRectangles(int image_idx, const std::map<int, Eigen::VectorXf> &targets);
+  cv::Point2f RotatePoint(const cv::Point2f &p, float rad);
 
   CostInt InitializeCostMatrix(const std::map<int, Eigen::VectorXf> &targets,
                                const std::vector<Eigen::VectorXf> &detections,

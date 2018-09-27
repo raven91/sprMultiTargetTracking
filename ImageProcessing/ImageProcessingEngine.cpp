@@ -47,6 +47,8 @@ void ImageProcessingEngine::CreateNewImageProcessingOutputFile(ParameterHandlerE
 
 void ImageProcessingEngine::RetrieveBacterialData(int image, std::vector<Eigen::VectorXf> &detections)
 {
+  std::cout << "image processing: image#" << image << std::endl;
+
   RetrieveSourceImage(image);
   IncreaseContrast(source_image_, gray_image_);
   SubtractBackgroundNoise(gray_image_, denoised_image_);
@@ -133,8 +135,6 @@ void ImageProcessingEngine::RetrieveSourceImage(int image)
                  << std::setw(9) << image << parameter_handler_.GetFileName1();
   std::string image_name = image_name_buf.str();
 
-  std::cout << image_name << std::endl;
-
   source_image_ = cv::imread(image_name, CV_LOAD_IMAGE_COLOR);
   assert(source_image_.data != NULL);
   source_image_ = cv::Mat(source_image_,
@@ -160,6 +160,15 @@ void ImageProcessingEngine::IncreaseContrast(const cv::Mat &I, cv::Mat &O)
       cv::equalizeHist(sub_img, sub_img);
     }
   }
+
+  for (int y = 0; y < O.rows; y++)
+  {
+    for (int x = 0; x < O.cols; x++)
+    {
+      O.at<uchar>(y, x) = cv::saturate_cast<uchar>(
+          parameter_handler_.GetContrast() * (O.at<uchar>(y, x)) + parameter_handler_.GetBrightness());
+    }
+  }
 }
 
 void ImageProcessingEngine::SubtractBackgroundNoise(const cv::Mat &I, cv::Mat &O)
@@ -171,10 +180,10 @@ void ImageProcessingEngine::SubtractBackgroundNoise(const cv::Mat &I, cv::Mat &O
 //                           parameter_handler_.GetNlMeansDenoisingTemplateWindowSize(),
 //                           parameter_handler_.GetNlMeansDenoisingSearchWindowSize());
   cv::GaussianBlur(blurred_background_image_.clone(),
-      blurred_background_image_,
-      cv::Size(2 * parameter_handler_.GetBlurRadius() + 1, 2 * parameter_handler_.GetBlurRadius() + 1),
-      parameter_handler_.GetBlurSigma(),
-      parameter_handler_.GetBlurSigma());
+                   blurred_background_image_,
+                   cv::Size(2 * parameter_handler_.GetBlurRadius() + 1, 2 * parameter_handler_.GetBlurRadius() + 1),
+                   parameter_handler_.GetBlurSigma(),
+                   parameter_handler_.GetBlurSigma());
   O = I - blurred_background_image_;
 }
 
@@ -572,6 +581,15 @@ const cv::Mat &ImageProcessingEngine::GetSourceImage(int image)
 {
   RetrieveSourceImage(image);
   return source_image_;
+}
+
+void ImageProcessingEngine::ComposeImageForFilterOutput(int image_idx, cv::Mat &image)
+{
+  RetrieveSourceImage(image_idx);
+  IncreaseContrast(source_image_, gray_image_);
+  cv::bitwise_not(gray_image_, gray_image_);
+  cv::equalizeHist(gray_image_, gray_image_);
+  cv::cvtColor(gray_image_, image, CV_GRAY2BGR);
 }
 
 const std::vector<cv::Point> &ImageProcessingEngine::GetContour(int idx)

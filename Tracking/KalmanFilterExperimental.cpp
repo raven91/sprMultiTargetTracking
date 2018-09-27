@@ -28,7 +28,9 @@ KalmanFilterExperimental::KalmanFilterExperimental(ParameterHandlerExperimental 
     costs_order_of_magnitude_(1000.0),
     unmatched_(),
     max_prediction_time_(1),
-    max_target_index_(0)
+    max_target_index_(0),
+    targets_colors_(),
+    rng_(12345)
 {
   I_ = Eigen::MatrixXf::Identity(kNumOfStateVars, kNumOfStateVars);
   A_ = Eigen::MatrixXf::Zero(kNumOfStateVars, kNumOfStateVars);
@@ -116,7 +118,7 @@ void KalmanFilterExperimental::InitializeTargets(std::map<int, Eigen::VectorXf> 
 
   SaveTargets(kalman_filter_output_file_, parameter_handler_.GetFirstImage(), targets);
   SaveTargetsMatlab(kalman_filter_matlab_output_file_, parameter_handler_.GetFirstImage(), targets);
-  SaveImages(parameter_handler_.GetFirstImage(), targets);
+  SaveImagesWithVectors(parameter_handler_.GetFirstImage(), targets);
 }
 
 void KalmanFilterExperimental::InitializeTargets(std::map<int, Eigen::VectorXf> &targets, std::ifstream &file)
@@ -152,7 +154,7 @@ void KalmanFilterExperimental::InitializeTargets(std::map<int, Eigen::VectorXf> 
 
   SaveTargets(kalman_filter_output_file_, parameter_handler_.GetFirstImage(), targets);
   SaveTargetsMatlab(kalman_filter_matlab_output_file_, parameter_handler_.GetFirstImage(), targets);
-//  SaveImages(parameter_handler_.GetFirstImage(), targets);
+//  SaveImagesWithVectors(parameter_handler_.GetFirstImage(), targets);
 }
 
 void KalmanFilterExperimental::ObtainNewDetections(std::vector<Eigen::VectorXf> &detections, std::ifstream &file)
@@ -241,7 +243,7 @@ void KalmanFilterExperimental::PerformEstimation(int image_idx,
 
   SaveTargets(kalman_filter_output_file_, image_idx, targets);
   SaveTargetsMatlab(kalman_filter_matlab_output_file_, image_idx, targets);
-  SaveImages(image_idx, targets);
+  SaveImagesWithVectors(image_idx, targets);
 
   std::cout << "number of overall targets taken part: " << max_target_index_ + 1 << "; number of current targets: "
             << targets.size() << std::endl;
@@ -598,14 +600,15 @@ void KalmanFilterExperimental::CorrectForOrientationUniqueness(std::map<int, Eig
     orientation_i << std::cosf(x_i[5]), std::sinf(x_i[5]);
 
     // in order to determine the orientation vector uniquely,
-    // we assume the angle difference between the orientation and velocity is < \pi/2
+    // we assume the angle difference between the orientation and velocity is < |\pi/2|
     if (velocity_i.dot(orientation_i) < 0.0f)
     {
-      (it->second)[5] = WrappingModulo(x_i[5] + M_PI, 2 * M_PI);
+      (it->second)[5] = WrappingModulo(x_i[5] + M_PI, 2.0 * M_PI);
     } else
     {
-      (it->second)[5] = WrappingModulo(x_i[5], 2 * M_PI);
+      (it->second)[5] = WrappingModulo(x_i[5], 2.0 * M_PI);
     }
+    (it->second)[5] = ConstrainAngleCentered((it->second)[5]);
   }
 }
 
@@ -809,7 +812,7 @@ void KalmanFilterExperimental::SaveTrajectoriesMatlab(std::ofstream &file,
   }
 }
 
-void KalmanFilterExperimental::SaveImages(int image_idx, const std::map<int, Eigen::VectorXf> &targets)
+void KalmanFilterExperimental::SaveImagesWithVectors(int image_idx, const std::map<int, Eigen::VectorXf> &targets)
 {
   cv::Mat image;
   image = image_processing_engine_.GetSourceImage();
@@ -837,7 +840,7 @@ void KalmanFilterExperimental::SaveImages(int image_idx, const std::map<int, Eig
              cv::Scalar(255, 0, 0));
 //		std::cout << "(" << center.x << "," << center.y << ") -> (" << center.x + std::cosf(x_i(5)) * x_i(4) / 10.0f << "," << center.y + std::sinf(x_i(5)) * x_i(4) / 10.0f << ")" << std::endl;
 
-    Eigen::SelfAdjointEigenSolver<Eigen::Matrix<float, kNumOfStateVars, kNumOfStateVars>> s(P_);
+/*    Eigen::SelfAdjointEigenSolver<Eigen::Matrix<float, kNumOfStateVars, kNumOfStateVars>> s(P_);
     Eigen::Matrix<std::complex<float>, kNumOfStateVars, 1> eigenvalues = s.eigenvalues();
     Eigen::Matrix<std::complex<float>, kNumOfStateVars, kNumOfStateVars> eigenvectors = s.eigenvectors();
     float angle = std::atan2(std::real(eigenvectors(1, 0)), std::real(eigenvectors(0, 0))) * 180 / M_PI;
@@ -848,6 +851,46 @@ void KalmanFilterExperimental::SaveImages(int image_idx, const std::map<int, Eig
                 0,
                 360,
                 cv::Scalar(0, 0, 255));
+*/
+  }
+
+  std::ostringstream output_image_name_buf;
+  output_image_name_buf << parameter_handler_.GetInputFolder() << parameter_handler_.GetKalmanFilterSubfolder()
+                        << parameter_handler_.GetFileName0() << std::setfill('0') << std::setw(9) << image_idx
+                        << parameter_handler_.GetFileName1();
+  std::string output_image_name = output_image_name_buf.str();
+  cv::imwrite(output_image_name, image);
+}
+
+void KalmanFilterExperimental::SaveImagesWithRectangles(int image_idx, const std::map<int, Eigen::VectorXf> &targets)
+{
+  cv::Mat image;
+  image_processing_engine_.ComposeImageForFilterOutput(image_idx, image);
+
+  for (std::map<int, Eigen::VectorXf>::const_iterator cit = targets.begin(); cit != targets.end(); ++cit)
+  {
+    Eigen::VectorXf x_i = cit->second;
+    cv::Scalar color;
+    if (targets_colors_.find(cit->first) != targets_colors_.end())
+    {
+      color = targets_colors_[cit->first];
+    } else
+    {
+      color = cv::Scalar(rng_.uniform(0, 255), rng_.uniform(0, 255), rng_.uniform(0, 255));
+      targets_colors_[cit->first] = color;
+    }
+
+    cv::Point2f center(x_i(0), x_i(1));
+    Real length = std::max(x_i(6), x_i(7));
+    Real width = std::min(x_i(6), x_i(7));
+    cv::Point2f lengthwise_vec = cv::Point2f(std::cosf(x_i(5)), std::sinf(x_i(5)));
+    cv::Point2f widthwise_vec = RotatePoint(lengthwise_vec, M_PI / 2.0);
+    lengthwise_vec *= length / 2.0f;
+    widthwise_vec *= width / 2.0f;
+    cv::line(image, center + lengthwise_vec + widthwise_vec, center + lengthwise_vec - widthwise_vec, color, 2, 8);
+    cv::line(image, center + lengthwise_vec - widthwise_vec, center - lengthwise_vec - widthwise_vec, color, 2, 8);
+    cv::line(image, center - lengthwise_vec - widthwise_vec, center - lengthwise_vec + widthwise_vec, color, 2, 8);
+    cv::line(image, center - lengthwise_vec + widthwise_vec, center + lengthwise_vec + widthwise_vec, color, 2, 8);
   }
 
   std::ostringstream output_image_name_buf;
@@ -955,4 +998,13 @@ CostInt KalmanFilterExperimental::InitializeCostMatrixForTrackLinking(std::map<i
   }
 
   return CostInt(max_elem);
+}
+
+cv::Point2f KalmanFilterExperimental::RotatePoint(const cv::Point2f &p, float rad)
+{
+  const float x = std::cos(rad) * p.x - std::sin(rad) * p.y;
+  const float y = std::sin(rad) * p.x + std::cos(rad) * p.y;
+
+  const cv::Point2f rot_p(x, y);
+  return rot_p;
 }
