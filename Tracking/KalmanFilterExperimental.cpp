@@ -400,7 +400,7 @@ void KalmanFilterExperimental::PerformTrackLinking(std::map<int, std::vector<Eig
 		assignments,
 		costs);
 	PerformTrackConnecting(trajectories, timestamps, target_indexes, assignments, costs, delta, tau);
-	DeleteShortTrajectories(trajectories,timestamps);
+	DeleteShortTrajectories(trajectories, timestamps);
 	FillHolesInMaps(trajectories, timestamps);
 	SaveTrajectories(track_linking_output_file_, trajectories, timestamps);
 	SaveTrajectoriesMatlab(track_linking_matlab_output_file_, trajectories, timestamps);
@@ -519,6 +519,7 @@ void KalmanFilterExperimental::DeleteShortTrajectories(
 	std::map<int, std::vector<int>> &timestamps)
 {
 	int min_traj_length = 2;
+	int counter = 0;
 	for (std::map<int, std::vector<Eigen::VectorXf>>::iterator traj_it = trajectories.begin(); traj_it != trajectories.end();)
 	{
 			if (traj_it->second.size() <= min_traj_length)
@@ -528,12 +529,14 @@ void KalmanFilterExperimental::DeleteShortTrajectories(
 				std::map<int, std::vector<int>>::iterator timest_it_del = timestamps.find(traj_it_del->first);
 				trajectories.erase(traj_it_del);
 				timestamps.erase(timest_it_del);
+				++counter;
 			}
 			else
 			{
 				++traj_it;
 			}
 	}
+	std::cout << "I just Deleted " << counter << " trajectories which were shorter than " << min_traj_length << std::endl;
 }
 
 void KalmanFilterExperimental::FillHolesInMaps(
