@@ -24,31 +24,12 @@ class KalmanFilterExperimental
   ~KalmanFilterExperimental();
 
   void CreateNewKalmanFilterOutputFiles(ParameterHandlerExperimental &parameter_handler);
-  void CreateNewTrackLinkingOutputFiles(ParameterHandlerExperimental &parameter_handler);
   void InitializeTargets(std::map<int, Eigen::VectorXf> &targets, const std::vector<Eigen::VectorXf> &detections);
   void InitializeTargets(std::map<int, Eigen::VectorXf> &targets, std::ifstream &file);
   void ObtainNewDetections(std::vector<Eigen::VectorXf> &detections, std::ifstream &file);
-  void InitializeTrajectories(std::map<int, std::vector<Eigen::VectorXf>> &trajectories,
-                              std::map<int, std::vector<int>> &timestamps,
-                              std::ifstream &file);
   void PerformEstimation(int image_idx,
                          std::map<int, Eigen::VectorXf> &targets,
                          const std::vector<Eigen::VectorXf> &detections);
-  void PerformTrackLinking(std::map<int, std::vector<Eigen::VectorXf>> &trajectories,
-                           std::map<int, std::vector<int>> &timestamps);
-  bool CheckDistance(const std::map<int, std::vector<Eigen::VectorXf>>::iterator &iter_trj_outer,
-                     const std::map<int, std::vector<Eigen::VectorXf>>::iterator &iter_trj_inner);
-  CostInt CountCostMatrixElementNOIntersection(const std::map<int,
-                                                              std::vector<Eigen::VectorXf>>::iterator &iter_trj_outer,
-                                               const std::map<int,
-                                                              std::vector<Eigen::VectorXf>>::iterator &iter_trj_inner,
-                                               int s);
-  CostInt CountCostMatrixElementIntersection(const std::map<int,
-                                                            std::vector<Eigen::VectorXf>>::iterator &iter_trj_outer,
-                                             const std::map<int,
-                                                            std::vector<Eigen::VectorXf>>::iterator &iter_trj_inner,
-                                             int Ti_e,
-                                             int Tj_b);
 
  private:
 
@@ -57,8 +38,6 @@ class KalmanFilterExperimental
 
   std::ofstream kalman_filter_output_file_;
   std::ofstream kalman_filter_matlab_output_file_;
-  std::ofstream track_linking_output_file_;
-  std::ofstream track_linking_matlab_output_file_;
 
   std::map<int, int> unmatched_;
   int max_prediction_time_;
@@ -104,38 +83,9 @@ class KalmanFilterExperimental
                      const std::vector<int> &assignments);
   void DeleteLongLostTargets(std::map<int, Eigen::VectorXf> &targets);
   void CorrectForOrientationUniqueness(std::map<int, Eigen::VectorXf> &targets);
-  void PerformDataAssociationForTrackLinking(std::map<int, std::vector<Eigen::VectorXf>> &trajectories,
-                                             std::map<int, std::vector<int>> &timestamps,
-                                             double &max_elem,
-                                             std::vector<int> &target_indexes,
-                                             std::vector<std::vector<CostInt>> &cost_matrix,
-                                             std::vector<int> &assignments,
-                                             std::vector<CostInt> &costs);
-  void PerformTrackConnecting(std::map<int, std::vector<Eigen::VectorXf>> &trajectories,
-                              std::map<int, std::vector<int>> &timestamps,
-                              std::vector<int> &target_indexes,
-                              std::vector<int> &assignments,
-                              std::vector<CostInt> &costs,
-                              int delta,
-                              int tau);
-  void DeleteShortTrajectories(std::map<int, std::vector<Eigen::VectorXf>> &trajectories,
-                               std::map<int, std::vector<int>> &timestamps);
-  void PerformTrajectoryContinuation(const std::map<int, std::vector<Eigen::VectorXf>>::iterator &outer_trajectory_iter,
-                                     const std::map<int, std::vector<Eigen::VectorXf>>::iterator &inner_trajectory_iter,
-                                     const std::map<int, std::vector<int>>::iterator &outer_timestamps_iter,
-                                     const std::map<int, std::vector<int>>::iterator &inner_timestamps_iter,
-                                     int s);
-  void FillHolesInMaps(std::map<int, std::vector<Eigen::VectorXf>> &trajectories,
-                       std::map<int, std::vector<int>> &timestamps);
 
   void SaveTargets(std::ofstream &file, int image_idx, const std::map<int, Eigen::VectorXf> &targets);
   void SaveTargetsMatlab(std::ofstream &file, int image_idx, const std::map<int, Eigen::VectorXf> &targets);
-  void SaveTrajectories(std::ofstream &file,
-                        const std::map<int, std::vector<Eigen::VectorXf>> &trajectories,
-                        const std::map<int, std::vector<int>> &timestamps);
-  void SaveTrajectoriesMatlab(std::ofstream &file,
-                              const std::map<int, std::vector<Eigen::VectorXf>> &trajectories,
-                              const std::map<int, std::vector<int>> &timestamps);
   void SaveImagesWithVectors(int image_idx, const std::map<int, Eigen::VectorXf> &targets);
   void SaveImagesWithRectangles(int image_idx, const std::map<int, Eigen::VectorXf> &targets);
   cv::Point2f RotatePoint(const cv::Point2f &p, float rad);
@@ -144,11 +94,6 @@ class KalmanFilterExperimental
                                const std::vector<Eigen::VectorXf> &detections,
                                std::vector<std::vector<CostInt>> &cost_matrix,
                                std::vector<int> &target_indexes);
-  CostInt InitializeCostMatrixForTrackLinking(std::map<int, std::vector<Eigen::VectorXf>> &trajectories,
-                                              std::map<int, std::vector<int>> &timestamps,
-                                              double &max_elem,
-                                              std::vector<std::vector<CostInt>> &cost_matrix,
-                                              std::vector<int> &target_indexes);
 
 };
 

@@ -9,6 +9,7 @@
 #include "KalmanFilterExperimental.hpp"
 #include "KalmanFilterSynthetic.hpp"
 #include "../Parameters/PeriodicBoundaryConditionsConfiguration.hpp"
+#include "TrajectoryLinker.hpp"
 
 #include <chrono>
 
@@ -94,9 +95,10 @@ void MultitargetTracker::StartTrackLinkingViaTemporalAssignment(const std::strin
 
   ImageProcessingEngine image_processing_engine(parameter_handler);
   KalmanFilterExperimental kalman_filter(parameter_handler, image_processing_engine);
-  kalman_filter.InitializeTrajectories(trajectories_, timestamps_, filtered_trajectories_file);
-  kalman_filter.CreateNewTrackLinkingOutputFiles(parameter_handler);
-  kalman_filter.PerformTrackLinking(trajectories_, timestamps_);
+  TrajectoryLinker trajectory_linker(parameter_handler, image_processing_engine);
+  trajectory_linker.InitializeTrajectories(trajectories_, timestamps_, filtered_trajectories_file);
+  trajectory_linker.CreateNewTrackLinkingOutputFiles(parameter_handler);
+  trajectory_linker.PerformTrackLinking(trajectories_, timestamps_);
 }
 
 void MultitargetTracker::StartImageProcessingOrFilteringForMultipleExperiments(const char &dependence)
