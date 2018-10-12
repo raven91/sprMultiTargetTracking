@@ -36,6 +36,19 @@ class KalmanFilterExperimental
                          const std::vector<Eigen::VectorXf> &detections);
   void PerformTrackLinking(std::map<int, std::vector<Eigen::VectorXf>> &trajectories,
                            std::map<int, std::vector<int>> &timestamps);
+  bool CheckDistance(const std::map<int, std::vector<Eigen::VectorXf>>::iterator &iter_trj_outer,
+                     const std::map<int, std::vector<Eigen::VectorXf>>::iterator &iter_trj_inner);
+  CostInt CountCostMatrixElementNOIntersection(const std::map<int,
+                                                              std::vector<Eigen::VectorXf>>::iterator &iter_trj_outer,
+                                               const std::map<int,
+                                                              std::vector<Eigen::VectorXf>>::iterator &iter_trj_inner,
+                                               int s);
+  CostInt CountCostMatrixElementIntersection(const std::map<int,
+                                                            std::vector<Eigen::VectorXf>>::iterator &iter_trj_outer,
+                                             const std::map<int,
+                                                            std::vector<Eigen::VectorXf>>::iterator &iter_trj_inner,
+                                             int Ti_e,
+                                             int Tj_b);
 
  private:
 
@@ -70,15 +83,15 @@ class KalmanFilterExperimental
                               std::vector<int> &assignments,
                               std::vector<CostInt> &costs);
   void UnassignUnrealisticTargets(const std::map<int, Eigen::VectorXf> &targets,
-                                    const std::vector<Eigen::VectorXf> &detections,
-                                    int n_max_dim,
-                                    std::vector<int> &assignments,
-                                    std::vector<CostInt> &costs,
-                                    const std::vector<int> &target_indexes);
-  void ComputePosteriorEstimate(std::map<int, Eigen::VectorXf> &targets,
                                   const std::vector<Eigen::VectorXf> &detections,
-                                  const std::vector<int> &assignments,
+                                  int n_max_dim,
+                                  std::vector<int> &assignments,
+                                  std::vector<CostInt> &costs,
                                   const std::vector<int> &target_indexes);
+  void ComputePosteriorEstimate(std::map<int, Eigen::VectorXf> &targets,
+                                const std::vector<Eigen::VectorXf> &detections,
+                                const std::vector<int> &assignments,
+                                const std::vector<int> &target_indexes);
   void MarkLostTargetsAsUnmatched(std::map<int, Eigen::VectorXf> &targets,
                                   const std::vector<int> &assignments,
                                   const std::vector<int> &target_indexes);
@@ -105,11 +118,24 @@ class KalmanFilterExperimental
                               std::vector<CostInt> &costs,
                               int delta,
                               int tau);
+  void DeleteShortTrajectories(std::map<int, std::vector<Eigen::VectorXf>> &trajectories,
+                               std::map<int, std::vector<int>> &timestamps);
+  void PerformTrajectoryContinuation(const std::map<int, std::vector<Eigen::VectorXf>>::iterator &outer_trajectory_iter,
+                                     const std::map<int, std::vector<Eigen::VectorXf>>::iterator &inner_trajectory_iter,
+                                     const std::map<int, std::vector<int>>::iterator &outer_timestamps_iter,
+                                     const std::map<int, std::vector<int>>::iterator &inner_timestamps_iter,
+                                     int s);
+  void FillHolesInMaps(std::map<int, std::vector<Eigen::VectorXf>> &trajectories,
+                       std::map<int, std::vector<int>> &timestamps);
 
   void SaveTargets(std::ofstream &file, int image_idx, const std::map<int, Eigen::VectorXf> &targets);
   void SaveTargetsMatlab(std::ofstream &file, int image_idx, const std::map<int, Eigen::VectorXf> &targets);
-  void SaveTrajectories(std::ofstream &file, std::map<int, std::vector<Eigen::VectorXf>> &trajectories);
-  void SaveTrajectoriesMatlab(std::ofstream &file, std::map<int, std::vector<Eigen::VectorXf>> &trajectories);
+  void SaveTrajectories(std::ofstream &file,
+                        const std::map<int, std::vector<Eigen::VectorXf>> &trajectories,
+                        const std::map<int, std::vector<int>> &timestamps);
+  void SaveTrajectoriesMatlab(std::ofstream &file,
+                              const std::map<int, std::vector<Eigen::VectorXf>> &trajectories,
+                              const std::map<int, std::vector<int>> &timestamps);
   void SaveImagesWithVectors(int image_idx, const std::map<int, Eigen::VectorXf> &targets);
   void SaveImagesWithRectangles(int image_idx, const std::map<int, Eigen::VectorXf> &targets);
   cv::Point2f RotatePoint(const cv::Point2f &p, float rad);

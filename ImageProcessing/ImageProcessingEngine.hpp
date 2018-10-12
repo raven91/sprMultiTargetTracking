@@ -68,7 +68,15 @@ class ImageProcessingEngine
   void SaveImage(const cv::Mat &I, int image);
   void SaveDetectedObjects(int image, std::vector<Eigen::VectorXf> &detections);
   bool IsContourInRoi(const std::vector<cv::Point> &contour);
-  void AnalyzeConvexityDefects(const cv::Mat &I, cv::Mat &O);
+  void AnalyzeConvexityDefectsOnePass(const cv::Mat &I, cv::Mat &O);
+  void AnalyzeConvexityDefectsRecursively();
+  std::vector<std::vector<cv::Point>> AnalyzeConvexityDefectsRecursively(const std::vector<cv::Point> &contour,
+                                                                         const cv::Rect &bounding_rect,
+                                                                         int recursion_counter);
+  void PerformConvexityDefectCorrection(const std::vector<cv::Vec4i>::iterator &cd_it,
+                               const std::vector<cv::Point> &contour,
+                               cv::Mat &image);
+  void FindSubcontours(const cv::Mat &subcontour_image, std::vector<std::vector<cv::Point>> &new_subcontours);
   void StandardizeImage(cv::Mat &image);
 
 };

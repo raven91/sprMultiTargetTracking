@@ -58,74 +58,14 @@ void ImageProcessingEngine::RetrieveBacterialData(int image, std::vector<Eigen::
 //                  blur_image_);
   ApplyThreshold(denoised_image_, threshold_image_);
   FindContours(threshold_image_);
-  AnalyzeConvexityDefects(threshold_image_, convexity_defects_image_);
-  FindImprovedContours(convexity_defects_image_);
+//  AnalyzeConvexityDefectsOnePass(threshold_image_, convexity_defects_image_);
+//  FindImprovedContours(convexity_defects_image_);
+  AnalyzeConvexityDefectsRecursively();
 
   DrawContours();
   SaveImage(contour_image_, image);
   SaveDetectedObjects(image, detections);
 }
-
-/*void ImageProcessingEngine::RetrieveBacterialPositions()
-{
-    std::string input_folder("/Users/nikita/Documents/spr/20161026/100x_01-BF0_1ms_1to200_300um_yepd_v5/");
-    std::string file_name_0("img_");//("img_channel000_position000_time");//("img_")
-    std::string file_name_1("_01-BF0_000.tif");//("_z000.tif");//("_01-BF0_000.tif")
-    std::string output_folder = input_folder + std::string("ImageProcessing/");
-    std::string image_processing_output_file_name = output_folder + std::string("image_processing_output.txt");
-    std::ofstream image_processing_output_file(image_processing_output_file_name, std::ios::out | std::ios::trunc);
-
-    for (int i = parameter_handler_.GetFirstImage(); i <= parameter_handler_.GetLastImage(); ++i)
-    {
-        std::ostringstream image_name_buf;
-        image_name_buf << input_folder << file_name_0 << std::setfill('0') << std::setw(9) << i << file_name_1;
-        std::string image_name = image_name_buf.str();
-
-        std::cout << image_name << std::endl;
-
-        source_image_ = cv::imread(image_name, CV_LOAD_IMAGE_COLOR);
-        if (!source_image_.data)
-        {
-            std::cerr << "image not found" << std::endl;
-        }
-        source_image_ = cv::Mat(source_image_, cv::Rect(1024, 1024, 1024, 1024));
-
-        cv::resize(source_image_, source_image_, cv::Size(), 1.0, 1.0, cv::INTER_LINEAR);
-        cv::cvtColor(source_image_, gray_image_, cv::COLOR_BGR2GRAY);
-        int subdivision = 0;
-        for (int xs = 0; xs < subdivision; ++xs)
-        {
-            for (int ys = 0; ys < subdivision; ++ys)
-            {
-                cv::Mat sub_img = cv::Mat(gray_image_, cv::Rect(gray_image_.cols / subdivision * xs, gray_image_.rows / subdivision * ys, gray_image_.cols / subdivision, gray_image_.rows / subdivision));
-                cv::equalizeHist(sub_img, sub_img);
-            }
-        }
-
-        ApplyBlurFilter(1, 2);
-        ApplyThreshold(0, 130);
-//		ApplyMorphologicalTransform(2, 1, 3);
-//		DetectEdges();
-        DisconnectBacteria();
-        FindContours();
-        AnalyzeConvexityDefects();
-        FindImprovedContours();
-
-        std::ostringstream output_image_name_buf;
-        output_image_name_buf << output_folder << file_name_0 << std::setfill('0') << std::setw(9) << i << file_name_1;
-        std::string output_image_name = output_image_name_buf.str();
-        cv::imwrite(output_image_name, contour_image_);
-
-        image_processing_output_file << i << " " << contours_.size() << " ";
-        cv::Vec4f fitted_line;
-        for (int b = 0; b < (int)contours_.size(); ++b)
-        {
-            cv::fitLine(contours_[b], fitted_line, cv::DIST_L2, 0, 0.01, 0.01);
-            image_processing_output_file << b << " " << mu_[b].m10 / mu_[b].m00 << " " << mu_[b].m01 / mu_[b].m00 << " " << cv::contourArea(contours_[b]) << " " << std::atan(fitted_line(1) / fitted_line(0)) << " ";
-        }
-        image_processing_output_file << std::endl;
-    }
-}*/
 
 void ImageProcessingEngine::RetrieveSourceImage(int image)
 {
@@ -447,7 +387,6 @@ void ImageProcessingEngine::SaveDetectedObjects(int image, std::vector<Eigen::Ve
 
     // fitted_line = (vx, vy, x0, y0)
     cv::fitLine(contours_[b], fitted_line, cv::DIST_L2, 0, 0.01, 0.01);
-    // TODO: verify slope range
     // [-pi,+pi]
     new_detection(5) = std::atan2(fitted_line[1], fitted_line[0]);
 
@@ -515,7 +454,7 @@ bool ImageProcessingEngine::IsContourInRoi(const std::vector<cv::Point> &contour
   return cv::pointPolygonTest(roi, center, false) >= 0.0;
 }
 
-void ImageProcessingEngine::AnalyzeConvexityDefects(const cv::Mat &I, cv::Mat &O)
+void ImageProcessingEngine::AnalyzeConvexityDefectsOnePass(const cv::Mat &I, cv::Mat &O)
 {
   O = I.clone();
 
@@ -539,37 +478,168 @@ void ImageProcessingEngine::AnalyzeConvexityDefects(const cv::Mat &I, cv::Mat &O
           double max_fixpt_depth = (*cd_it)[3] / 256.0;
           if (max_fixpt_depth > parameter_handler_.GetConvexityDefectMagnitude())
           {
-            const cv::Point2f &start_point = contour[(*cd_it)[0]];
-            const cv::Point2f &end_point = contour[(*cd_it)[1]];
-            const cv::Point2f &farthest_point = contour[(*cd_it)[2]];
-
-            cv::Point2f middle_point(0.5f * (start_point.x + end_point.x), 0.5f * (start_point.y + end_point.y));
-            cv::Point2f inward_cutting_vec = farthest_point - middle_point;
-            double inward_cutting_vec_norm =
-                std::sqrt(inward_cutting_vec.x * inward_cutting_vec.x + inward_cutting_vec.y * inward_cutting_vec.y);
-            inward_cutting_vec /= inward_cutting_vec_norm;
-            double intersection_length = 0.0;
-            do
-            {
-              intersection_length += 1.0;
-            } while (cv::pointPolygonTest(contour,
-                                          middle_point
-                                              + inward_cutting_vec * (inward_cutting_vec_norm + intersection_length),
-                                          false) >= 0.0);
-            if (intersection_length <= 15.0) // if the cut is transverse to bacteria
-            {
-              cv::line(O,
-                       farthest_point,
-                       middle_point + inward_cutting_vec * (inward_cutting_vec_norm + intersection_length),
-                       cv::Scalar(0, 0, 0),
-                       2,
-                       cv::LINE_AA);
-            }
+            PerformConvexityDefectCorrection(cd_it, contour, O);
           }
         } // cd_it
       }
     }
   } // i
+}
+
+void ImageProcessingEngine::AnalyzeConvexityDefectsRecursively()
+{
+  std::vector<std::vector<cv::Point>> convex_contours;
+  for (int i = 0; i < contours_.size(); ++i)
+  {
+    std::vector<cv::Point> &contour = contours_[i];
+    cv::Rect bounding_rect = cv::boundingRect(contour);
+    std::for_each(contour.begin(),
+                  contour.end(),
+                  [&](cv::Point &p) { p -= bounding_rect.tl(); });
+    int recursion_counter = 0;
+    std::vector<std::vector<cv::Point>>
+        convex_subcontours = AnalyzeConvexityDefectsRecursively(contour, bounding_rect, recursion_counter);
+    for (int j = 0; j < convex_subcontours.size(); ++j)
+    {
+      std::for_each(convex_subcontours[j].begin(),
+                    convex_subcontours[j].end(),
+                    [&](cv::Point &p) { p += bounding_rect.tl(); });
+    } // j
+    convex_contours.insert(convex_contours.end(), convex_subcontours.begin(), convex_subcontours.end());
+  } // i
+  contours_ = convex_contours;
+}
+
+std::vector<std::vector<cv::Point>> ImageProcessingEngine::AnalyzeConvexityDefectsRecursively(const std::vector<cv::Point> &contour,
+                                                                                              const cv::Rect &bounding_rect,
+                                                                                              int recursion_counter)
+{
+  ++recursion_counter;
+  if (contour.size() > 2) // convex hull may be computed for contours with number of points > 2
+  {
+    std::vector<int> convex_hull_indices;
+    cv::convexHull(contour, convex_hull_indices, false, false);
+    if (!cv::isContourConvex(contour))
+    {
+      std::vector<cv::Vec4i> convexity_defects;
+      cv::convexityDefects(contour, convex_hull_indices, convexity_defects);
+      std::vector<cv::Vec4i>::iterator max_iter = std::max_element(convexity_defects.begin(),
+                                                                   convexity_defects.end(),
+                                                                   [](const cv::Vec4i &a, const cv::Vec4i &b)
+                                                                   {
+                                                                     return a[3] < b[3];
+                                                                   });
+      double max_fixpt_depth = (*max_iter)[3] / 256.0;
+      if (max_fixpt_depth < parameter_handler_.GetConvexityDefectMagnitude())
+      {
+        // end of recursion
+        std::vector<std::vector<cv::Point>> contour_wrapping;
+        contour_wrapping.push_back(contour);
+        return contour_wrapping;
+      } else
+      {
+        cv::Mat subcontour_image = cv::Mat::zeros(bounding_rect.height, bounding_rect.width, CV_8UC1);
+        std::vector<std::vector<cv::Point>> contours_to_draw;
+        contours_to_draw.push_back(contour);
+        cv::drawContours(subcontour_image,
+                         contours_to_draw,
+                         0,
+                         cv::Scalar(255, 255, 255),
+                         -1,
+                         cv::LINE_AA,
+                         cv::noArray(),
+                         0,
+                         cv::Point(0, 0));
+        PerformConvexityDefectCorrection(max_iter, contour, subcontour_image);
+        const int max_binary_threshold_value = 255;
+        cv::threshold(subcontour_image, subcontour_image, 254, max_binary_threshold_value, 0);
+
+        // search for subcontours recursively
+        std::vector<std::vector<cv::Point>> subcontours;
+        FindSubcontours(subcontour_image, subcontours);
+        std::vector<std::vector<cv::Point>> combined_subcontours;
+        for (int j = 0; j < subcontours.size(); ++j)
+        {
+          // recursive call
+          std::vector<std::vector<cv::Point>>
+              res_vec = AnalyzeConvexityDefectsRecursively(subcontours[j], bounding_rect, recursion_counter);
+          combined_subcontours.insert(combined_subcontours.end(), res_vec.begin(), res_vec.end());
+        }
+        return combined_subcontours;
+      }
+    } else
+    {
+      std::vector<std::vector<cv::Point>> contour_wrapping;
+      contour_wrapping.push_back(contour);
+      return contour_wrapping;
+    }
+  } else
+  {
+    return std::vector<std::vector<cv::Point>>();
+  }
+}
+
+void ImageProcessingEngine::FindSubcontours(const cv::Mat &subcontour_image,
+                                            std::vector<std::vector<cv::Point>> &new_subcontours)
+{
+  int offset = 2;
+  cv::Mat extended_contour_image;
+  cv::copyMakeBorder(subcontour_image.clone(),
+                     extended_contour_image,
+                     offset,
+                     offset,
+                     offset,
+                     offset,
+                     cv::BORDER_CONSTANT,
+                     cv::Scalar(0, 0, 0));
+  new_subcontours.clear();
+  std::vector<cv::Vec4i> hierarchy;
+  cv::findContours(extended_contour_image,
+                   new_subcontours,
+                   hierarchy,
+                   cv::RETR_EXTERNAL,
+                   cv::CHAIN_APPROX_SIMPLE,
+                   cv::Point(-offset, -offset));
+  new_subcontours.erase(std::remove_if(new_subcontours.begin(),
+                                       new_subcontours.end(),
+                                       [&](const std::vector<cv::Point> &subcontour)
+                                       {
+                                         double contour_area = cv::contourArea(subcontour);
+                                         return (contour_area < parameter_handler_.GetMinContourArea());
+                                       }),
+                        new_subcontours.end());
+}
+
+void ImageProcessingEngine::PerformConvexityDefectCorrection(const std::vector<cv::Vec4i>::iterator &cd_it,
+                                                             const std::vector<cv::Point> &contour,
+                                                             cv::Mat &image)
+{
+  const cv::Point2f &start_point = contour[(*cd_it)[0]];
+  const cv::Point2f &end_point = contour[(*cd_it)[1]];
+  const cv::Point2f &farthest_point = contour[(*cd_it)[2]];
+
+  cv::Point2f middle_point(0.5f * (start_point.x + end_point.x), 0.5f * (start_point.y + end_point.y));
+  cv::Point2f inward_cutting_vec = farthest_point - middle_point;
+  double inward_cutting_vec_norm =
+      std::sqrt(inward_cutting_vec.x * inward_cutting_vec.x + inward_cutting_vec.y * inward_cutting_vec.y);
+  inward_cutting_vec /= inward_cutting_vec_norm;
+  double intersection_length = 0.0;
+  do
+  {
+    intersection_length += 1.0;
+  } while (cv::pointPolygonTest(contour,
+                                middle_point
+                                    + inward_cutting_vec * (inward_cutting_vec_norm + intersection_length),
+                                false) >= 0.0);
+  if (intersection_length <= 15.0) // if the cut is transverse to bacteria
+  {
+    cv::line(image,
+             farthest_point,
+             middle_point + inward_cutting_vec * (inward_cutting_vec_norm + intersection_length),
+             cv::Scalar(0, 0, 0),
+             2,
+             cv::LINE_AA);
+  }
 }
 
 const cv::Mat &ImageProcessingEngine::GetSourceImage()
