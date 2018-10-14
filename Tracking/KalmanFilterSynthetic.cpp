@@ -59,10 +59,10 @@ KalmanFilterSynthetic::~KalmanFilterSynthetic()
   kalman_filter_matlab_output_file_.close();
 }
 
-void KalmanFilterSynthetic::InitializeTargets(std::map<int, Eigen::VectorXf> &targets, std::ifstream &file)
+void KalmanFilterSynthetic::InitializeTargets(std::map<int, Eigen::VectorXd> &targets, std::ifstream &file)
 {
   int last_index = 0;
-  Eigen::VectorXf new_target = Eigen::MatrixXf::Zero(kNumOfExtractedFeatures, 1);
+  Eigen::VectorXd new_target = Eigen::MatrixXd::Zero(kNumOfExtractedFeatures, 1);
   int time_idx = 0;
   int target_idx = 0;
   int number_of_detections = 0;
@@ -91,11 +91,11 @@ void KalmanFilterSynthetic::InitializeTargets(std::map<int, Eigen::VectorXf> &ta
   tracking_statistics_.IncrementNumberOfTimePoints(1);
 }
 
-void KalmanFilterSynthetic::ObtainNewDetections(std::vector<Eigen::VectorXf> &detections, std::ifstream &file)
+void KalmanFilterSynthetic::ObtainNewDetections(std::vector<Eigen::VectorXd> &detections, std::ifstream &file)
 {
   detections.clear();
 
-  Eigen::VectorXf new_detection = Eigen::MatrixXf::Zero(kNumOfExtractedFeatures, 1);
+  Eigen::VectorXd new_detection = Eigen::MatrixXd::Zero(kNumOfExtractedFeatures, 1);
   int time_idx = 0;
   int detection_idx = 0;
   int number_of_detections = 0;
@@ -109,20 +109,20 @@ void KalmanFilterSynthetic::ObtainNewDetections(std::vector<Eigen::VectorXf> &de
 }
 
 void KalmanFilterSynthetic::PerformEstimation(int image_idx,
-                                              std::map<int, Eigen::VectorXf> &targets,
-                                              const std::vector<Eigen::VectorXf> &detections)
+                                              std::map<int, Eigen::VectorXd> &targets,
+                                              const std::vector<Eigen::VectorXd> &detections)
 {
   std::cout << "kalman filter: image#" << image_idx << std::endl;
 
   int n_max_dim = 0; // max size between targets and detections
   Real dt = 1;// in ms
 
-  Eigen::MatrixXf A = Eigen::MatrixXf::Zero(kNumOfStateVars, kNumOfStateVars);
-  Eigen::MatrixXf W = Eigen::MatrixXf::Zero(kNumOfStateVars, kNumOfStateVars);
-  Eigen::MatrixXf H = Eigen::MatrixXf::Zero(kNumOfDetectionVars, kNumOfStateVars);
-  Eigen::MatrixXf Q = Eigen::MatrixXf::Zero(kNumOfDetectionVars, kNumOfDetectionVars);
-  Eigen::MatrixXf P_estimate = Eigen::MatrixXf::Zero(kNumOfStateVars, kNumOfStateVars);
-  Eigen::MatrixXf K = Eigen::MatrixXf::Zero(kNumOfStateVars, kNumOfStateVars);
+  Eigen::MatrixXd A = Eigen::MatrixXd::Zero(kNumOfStateVars, kNumOfStateVars);
+  Eigen::MatrixXd W = Eigen::MatrixXd::Zero(kNumOfStateVars, kNumOfStateVars);
+  Eigen::MatrixXd H = Eigen::MatrixXd::Zero(kNumOfDetectionVars, kNumOfStateVars);
+  Eigen::MatrixXd Q = Eigen::MatrixXd::Zero(kNumOfDetectionVars, kNumOfDetectionVars);
+  Eigen::MatrixXd P_estimate = Eigen::MatrixXd::Zero(kNumOfStateVars, kNumOfStateVars);
+  Eigen::MatrixXd K = Eigen::MatrixXd::Zero(kNumOfStateVars, kNumOfStateVars);
 
   A(0, 0) = A(1, 1) = A(2, 2) = A(3, 3) = 1.0;
   A(0, 2) = A(1, 3) = dt;
@@ -166,14 +166,14 @@ void KalmanFilterSynthetic::PerformEstimation(int image_idx,
             << targets.size() << std::endl;
 }
 
-void KalmanFilterSynthetic::ComputePriorEstimate(std::map<int, Eigen::VectorXf> &targets,
-                                                 Eigen::MatrixXf &P_estimate,
-                                                 const Eigen::MatrixXf &A,
-                                                 const Eigen::MatrixXf &W,
-                                                 const Eigen::MatrixXf &H)
+void KalmanFilterSynthetic::ComputePriorEstimate(std::map<int, Eigen::VectorXd> &targets,
+                                                 Eigen::MatrixXd &P_estimate,
+                                                 const Eigen::MatrixXd &A,
+                                                 const Eigen::MatrixXd &W,
+                                                 const Eigen::MatrixXd &H)
 {
-  Eigen::VectorXf x_i_estimate(kNumOfStateVars);
-  for (std::map<int, Eigen::VectorXf>::iterator it = targets.begin(); it != targets.end(); ++it)
+  Eigen::VectorXd x_i_estimate(kNumOfStateVars);
+  for (std::map<int, Eigen::VectorXd>::iterator it = targets.begin(); it != targets.end(); ++it)
   {
     x_i_estimate = (it->second).head(kNumOfStateVars);
     x_i_estimate = A * x_i_estimate;
@@ -183,16 +183,16 @@ void KalmanFilterSynthetic::ComputePriorEstimate(std::map<int, Eigen::VectorXf> 
   P_estimate = A * P_estimate * A.transpose() + W;
 }
 
-void KalmanFilterSynthetic::ComputeKalmanGainMatrix(Eigen::MatrixXf &K,
-                                                    const Eigen::MatrixXf &P_estimate,
-                                                    const Eigen::MatrixXf &H,
-                                                    const Eigen::MatrixXf &Q)
+void KalmanFilterSynthetic::ComputeKalmanGainMatrix(Eigen::MatrixXd &K,
+                                                    const Eigen::MatrixXd &P_estimate,
+                                                    const Eigen::MatrixXd &H,
+                                                    const Eigen::MatrixXd &Q)
 {
   K = P_estimate * H.transpose() * (H * P_estimate * H.transpose() + Q).inverse();
 }
 
-void KalmanFilterSynthetic::PerformDataAssociation(const std::map<int, Eigen::VectorXf> &targets,
-                                                   const std::vector<Eigen::VectorXf> &detections,
+void KalmanFilterSynthetic::PerformDataAssociation(const std::map<int, Eigen::VectorXd> &targets,
+                                                   const std::vector<Eigen::VectorXd> &detections,
                                                    int n_max_dim,
                                                    std::vector<int> &target_indexes,
                                                    std::vector<std::vector<CostInt>> &cost_matrix,
@@ -210,8 +210,8 @@ void KalmanFilterSynthetic::PerformDataAssociation(const std::map<int, Eigen::Ve
                 });
 }
 
-void KalmanFilterSynthetic::UnassignUnrealisticTargets(const std::map<int, Eigen::VectorXf> &targets,
-                                                       const std::vector<Eigen::VectorXf> &detections,
+void KalmanFilterSynthetic::UnassignUnrealisticTargets(const std::map<int, Eigen::VectorXd> &targets,
+                                                       const std::vector<Eigen::VectorXd> &detections,
                                                        int n_max_dim,
                                                        std::vector<int> &assignments,
                                                        std::vector<CostInt> &costs)
@@ -231,16 +231,16 @@ void KalmanFilterSynthetic::UnassignUnrealisticTargets(const std::map<int, Eigen
   }
 }
 
-void KalmanFilterSynthetic::ComputePosteriorEstimate(std::map<int, Eigen::VectorXf> &targets,
-                                                     const std::vector<Eigen::VectorXf> &detections,
-                                                     Eigen::MatrixXf &P_estimate,
-                                                     const Eigen::MatrixXf &K,
-                                                     const Eigen::MatrixXf &H,
+void KalmanFilterSynthetic::ComputePosteriorEstimate(std::map<int, Eigen::VectorXd> &targets,
+                                                     const std::vector<Eigen::VectorXd> &detections,
+                                                     Eigen::MatrixXd &P_estimate,
+                                                     const Eigen::MatrixXd &K,
+                                                     const Eigen::MatrixXd &H,
                                                      const std::vector<int> &assignments,
                                                      const std::vector<int> &target_indexes)
 {
-  Eigen::VectorXf z_i(kNumOfDetectionVars);
-  Eigen::VectorXf x_i_estimate(kNumOfStateVars);
+  Eigen::VectorXd z_i(kNumOfDetectionVars);
+  Eigen::VectorXd x_i_estimate(kNumOfStateVars);
   for (int i = 0; i < targets.size(); ++i)
   {
     if (assignments[i] != -1)
@@ -272,11 +272,11 @@ void KalmanFilterSynthetic::ComputePosteriorEstimate(std::map<int, Eigen::Vector
 //        targets[target_indexes[i]][7] = detections[assignments[i]][7];
     }
   }
-  Eigen::MatrixXf I = Eigen::MatrixXf::Identity(kNumOfStateVars, kNumOfStateVars);
+  Eigen::MatrixXd I = Eigen::MatrixXd::Identity(kNumOfStateVars, kNumOfStateVars);
   P_estimate = (I - K * H) * P_estimate;
 }
 
-void KalmanFilterSynthetic::MarkLostTargetsAsUnmatched(std::map<int, Eigen::VectorXf> &targets,
+void KalmanFilterSynthetic::MarkLostTargetsAsUnmatched(std::map<int, Eigen::VectorXd> &targets,
                                                        const std::vector<int> &assignments,
                                                        const std::vector<int> &target_indexes)
 {
@@ -297,10 +297,10 @@ void KalmanFilterSynthetic::MarkLostTargetsAsUnmatched(std::map<int, Eigen::Vect
   }
 }
 
-void KalmanFilterSynthetic::MarkAllTargetsAsUnmatched(std::map<int, Eigen::VectorXf> &targets)
+void KalmanFilterSynthetic::MarkAllTargetsAsUnmatched(std::map<int, Eigen::VectorXd> &targets)
 {
   // all the targets have been lost
-  for (std::map<int, Eigen::VectorXf>::const_iterator it = targets.begin(); it != targets.end(); ++it)
+  for (std::map<int, Eigen::VectorXd>::const_iterator it = targets.begin(); it != targets.end(); ++it)
   {
     if (unmatched_.find(it->first) != unmatched_.end())
     {
@@ -314,7 +314,7 @@ void KalmanFilterSynthetic::MarkAllTargetsAsUnmatched(std::map<int, Eigen::Vecto
   }
 }
 
-void KalmanFilterSynthetic::RemoveRecapturedTargetsFromStrikes(std::map<int, Eigen::VectorXf> &targets,
+void KalmanFilterSynthetic::RemoveRecapturedTargetsFromStrikes(std::map<int, Eigen::VectorXd> &targets,
                                                                const std::vector<int> &assignments,
                                                                const std::vector<int> &target_indexes)
 {
@@ -331,8 +331,8 @@ void KalmanFilterSynthetic::RemoveRecapturedTargetsFromStrikes(std::map<int, Eig
   }
 }
 
-void KalmanFilterSynthetic::AddNewTargets(std::map<int, Eigen::VectorXf> &targets,
-                                          const std::vector<Eigen::VectorXf> &detections,
+void KalmanFilterSynthetic::AddNewTargets(std::map<int, Eigen::VectorXd> &targets,
+                                          const std::vector<Eigen::VectorXd> &detections,
                                           const std::vector<int> &assignments)
 {
   std::vector<int> all_detection_indexes(detections.size());
@@ -357,7 +357,7 @@ void KalmanFilterSynthetic::AddNewTargets(std::map<int, Eigen::VectorXf> &target
   }
 }
 
-void KalmanFilterSynthetic::DeleteLongLostTargets(std::map<int, Eigen::VectorXf> &targets)
+void KalmanFilterSynthetic::DeleteLongLostTargets(std::map<int, Eigen::VectorXd> &targets)
 {
   for (std::map<int, int>::iterator it = unmatched_.begin(); it != unmatched_.end();)
   {
@@ -376,11 +376,11 @@ void KalmanFilterSynthetic::DeleteLongLostTargets(std::map<int, Eigen::VectorXf>
 
 void KalmanFilterSynthetic::SaveTargets(std::ofstream &file,
                                         int time_idx,
-                                        const std::map<int, Eigen::VectorXf> &targets)
+                                        const std::map<int, Eigen::VectorXd> &targets)
 {
-  Eigen::VectorXf x_i;
+  Eigen::VectorXd x_i;
   file << time_idx << " " << targets.size() << " ";
-  for (std::map<int, Eigen::VectorXf>::const_iterator it = targets.begin(); it != targets.end(); ++it)
+  for (std::map<int, Eigen::VectorXd>::const_iterator it = targets.begin(); it != targets.end(); ++it)
   {
     x_i = it->second;
     file << it->first << " " << x_i(0) << " " << x_i(1) << " " << x_i(2) << " " << x_i(3) << " ";
@@ -390,10 +390,10 @@ void KalmanFilterSynthetic::SaveTargets(std::ofstream &file,
 
 void KalmanFilterSynthetic::SaveTargetsMatlab(std::ofstream &file,
                                               int time_idx,
-                                              const std::map<int, Eigen::VectorXf> &targets)
+                                              const std::map<int, Eigen::VectorXd> &targets)
 {
-  Eigen::VectorXf x_i;
-  for (std::map<int, Eigen::VectorXf>::const_iterator it = targets.begin(); it != targets.end(); ++it)
+  Eigen::VectorXd x_i;
+  for (std::map<int, Eigen::VectorXd>::const_iterator it = targets.begin(); it != targets.end(); ++it)
   {
     x_i = it->second;
     file << time_idx << " " << it->first << " " << x_i(0) << " " << x_i(1) << " " << x_i(2) << " " << x_i(3)
@@ -401,7 +401,7 @@ void KalmanFilterSynthetic::SaveTargetsMatlab(std::ofstream &file,
   }
 }
 
-void KalmanFilterSynthetic::SaveTargetsBinary(int time_idx, const std::map<int, Eigen::VectorXf> &targets)
+void KalmanFilterSynthetic::SaveTargetsBinary(int time_idx, const std::map<int, Eigen::VectorXd> &targets)
 {
   std::ofstream file(
       "/Users/nikita/Documents/spr/sprPerformanceMeasures/spr_simulation_phi_0.063_a_4_U0_250_k_0/kalman_filter_output.bin",
@@ -409,7 +409,7 @@ void KalmanFilterSynthetic::SaveTargetsBinary(int time_idx, const std::map<int, 
   Real time = time_idx;
   Real x = 0.0;
   file.write((char *) &time, sizeof(Real));
-  for (std::map<int, Eigen::VectorXf>::const_iterator it = targets.begin(); it != targets.end(); ++it)
+  for (std::map<int, Eigen::VectorXd>::const_iterator it = targets.begin(); it != targets.end(); ++it)
   {
     x = (it->second)(0);
     file.write((char *) &x, sizeof(Real));
@@ -422,15 +422,15 @@ void KalmanFilterSynthetic::SaveTargetsBinary(int time_idx, const std::map<int, 
   }
 }
 
-CostInt KalmanFilterSynthetic::InitializeCostMatrix(const std::map<int, Eigen::VectorXf> &targets,
-                                                    const std::vector<Eigen::VectorXf> &detections,
+CostInt KalmanFilterSynthetic::InitializeCostMatrix(const std::map<int, Eigen::VectorXd> &targets,
+                                                    const std::vector<Eigen::VectorXd> &detections,
                                                     std::vector<std::vector<CostInt>> &cost_matrix,
                                                     std::vector<int> &target_indexes)
 {
   target_indexes.clear();
 
-  Eigen::VectorXf target(kNumOfExtractedFeatures);
-  Eigen::VectorXf detection(kNumOfExtractedFeatures);
+  Eigen::VectorXd target(kNumOfExtractedFeatures);
+  Eigen::VectorXd detection(kNumOfExtractedFeatures);
   Real cost = 0.0;
   Real max_cost = 0;
   int i = 0;
@@ -439,7 +439,7 @@ CostInt KalmanFilterSynthetic::InitializeCostMatrix(const std::map<int, Eigen::V
   Real max_dist = Real(std::sqrt(parameter_handler_.GetSubimageXSize() * parameter_handler_.GetSubimageXSize()
                                      + parameter_handler_.GetSubimageYSize() * parameter_handler_.GetSubimageYSize())
                            / 2.0);
-  for (std::map<int, Eigen::VectorXf>::const_iterator it = targets.begin(); it != targets.end(); ++it, ++i)
+  for (std::map<int, Eigen::VectorXd>::const_iterator it = targets.begin(); it != targets.end(); ++it, ++i)
   {
     target_indexes.push_back(it->first);
     target = it->second;

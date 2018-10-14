@@ -32,13 +32,13 @@ KalmanFilterExperimental::KalmanFilterExperimental(ParameterHandlerExperimental 
     targets_colors_(),
     rng_(12345)
 {
-  I_ = Eigen::MatrixXf::Identity(kNumOfStateVars, kNumOfStateVars);
-  A_ = Eigen::MatrixXf::Zero(kNumOfStateVars, kNumOfStateVars);
-  W_ = Eigen::MatrixXf::Zero(kNumOfStateVars, kNumOfStateVars);
-  H_ = Eigen::MatrixXf::Zero(kNumOfDetectionVars, kNumOfStateVars);
-  Q_ = Eigen::MatrixXf::Zero(kNumOfDetectionVars, kNumOfDetectionVars);
-  P_ = Eigen::MatrixXf::Zero(kNumOfStateVars, kNumOfStateVars);
-  K_ = Eigen::MatrixXf::Zero(kNumOfStateVars, kNumOfStateVars);
+  I_ = Eigen::MatrixXd::Identity(kNumOfStateVars, kNumOfStateVars);
+  A_ = Eigen::MatrixXd::Zero(kNumOfStateVars, kNumOfStateVars);
+  W_ = Eigen::MatrixXd::Zero(kNumOfStateVars, kNumOfStateVars);
+  H_ = Eigen::MatrixXd::Zero(kNumOfDetectionVars, kNumOfStateVars);
+  Q_ = Eigen::MatrixXd::Zero(kNumOfDetectionVars, kNumOfDetectionVars);
+  P_ = Eigen::MatrixXd::Zero(kNumOfStateVars, kNumOfStateVars);
+  K_ = Eigen::MatrixXd::Zero(kNumOfStateVars, kNumOfStateVars);
 
   Real dt = 1;// in ms==image
   A_(0, 0) = A_(1, 1) = A_(2, 2) = A_(3, 3) = 1.0;
@@ -76,13 +76,13 @@ void KalmanFilterExperimental::CreateNewKalmanFilterOutputFiles(ParameterHandler
   assert(kalman_filter_matlab_output_file_.is_open());
 }
 
-void KalmanFilterExperimental::InitializeTargets(std::map<int, Eigen::VectorXf> &targets,
-                                                 const std::vector<Eigen::VectorXf> &detections)
+void KalmanFilterExperimental::InitializeTargets(std::map<int, Eigen::VectorXd> &targets,
+                                                 const std::vector<Eigen::VectorXd> &detections)
 {
   targets.clear();
 
   int last_index = 0;
-  Eigen::VectorXf new_target(kNumOfExtractedFeatures);
+  Eigen::VectorXd new_target(kNumOfExtractedFeatures);
   for (int b = 0; b < detections.size(); ++b)
   {
     if (targets.empty())
@@ -105,10 +105,10 @@ void KalmanFilterExperimental::InitializeTargets(std::map<int, Eigen::VectorXf> 
   SaveImagesWithVectors(parameter_handler_.GetFirstImage(), targets);
 }
 
-void KalmanFilterExperimental::InitializeTargets(std::map<int, Eigen::VectorXf> &targets, std::ifstream &file)
+void KalmanFilterExperimental::InitializeTargets(std::map<int, Eigen::VectorXd> &targets, std::ifstream &file)
 {
   int last_index = 0;
-  Eigen::VectorXf new_target = Eigen::MatrixXf::Zero(kNumOfExtractedFeatures, 1);
+  Eigen::VectorXd new_target = Eigen::MatrixXd::Zero(kNumOfExtractedFeatures, 1);
   int time_idx = 0;
   int target_idx = 0;
   int number_of_detections = 0;
@@ -141,11 +141,11 @@ void KalmanFilterExperimental::InitializeTargets(std::map<int, Eigen::VectorXf> 
 //  SaveImagesWithVectors(parameter_handler_.GetFirstImage(), targets);
 }
 
-void KalmanFilterExperimental::ObtainNewDetections(std::vector<Eigen::VectorXf> &detections, std::ifstream &file)
+void KalmanFilterExperimental::ObtainNewDetections(std::vector<Eigen::VectorXd> &detections, std::ifstream &file)
 {
   detections.clear();
 
-  Eigen::VectorXf new_detection = Eigen::MatrixXf::Zero(kNumOfExtractedFeatures, 1);
+  Eigen::VectorXd new_detection = Eigen::MatrixXd::Zero(kNumOfExtractedFeatures, 1);
   int time_idx = 0;
   int detection_idx = 0;
   int number_of_detections = 0;
@@ -161,8 +161,8 @@ void KalmanFilterExperimental::ObtainNewDetections(std::vector<Eigen::VectorXf> 
 }
 
 void KalmanFilterExperimental::PerformEstimation(int image_idx,
-                                                 std::map<int, Eigen::VectorXf> &targets,
-                                                 const std::vector<Eigen::VectorXf> &detections)
+                                                 std::map<int, Eigen::VectorXd> &targets,
+                                                 const std::vector<Eigen::VectorXd> &detections)
 {
   std::cout << "kalman filter: image#" << image_idx << std::endl;
 
@@ -201,10 +201,10 @@ void KalmanFilterExperimental::PerformEstimation(int image_idx,
             << targets.size() << std::endl;
 }
 
-void KalmanFilterExperimental::ComputePriorEstimate(std::map<int, Eigen::VectorXf> &targets)
+void KalmanFilterExperimental::ComputePriorEstimate(std::map<int, Eigen::VectorXd> &targets)
 {
-  Eigen::VectorXf x_i_estimate(kNumOfStateVars);
-  for (std::map<int, Eigen::VectorXf>::iterator it = targets.begin(); it != targets.end(); ++it)
+  Eigen::VectorXd x_i_estimate(kNumOfStateVars);
+  for (std::map<int, Eigen::VectorXd>::iterator it = targets.begin(); it != targets.end(); ++it)
   {
     x_i_estimate = (it->second).head(kNumOfStateVars);
     x_i_estimate = A_ * x_i_estimate;
@@ -218,8 +218,8 @@ void KalmanFilterExperimental::ComputeKalmanGainMatrix()
   K_ = P_ * H_.transpose() * (H_ * P_ * H_.transpose() + Q_).inverse();
 }
 
-void KalmanFilterExperimental::PerformDataAssociation(const std::map<int, Eigen::VectorXf> &targets,
-                                                      const std::vector<Eigen::VectorXf> &detections,
+void KalmanFilterExperimental::PerformDataAssociation(const std::map<int, Eigen::VectorXd> &targets,
+                                                      const std::vector<Eigen::VectorXd> &detections,
                                                       int n_max_dim,
                                                       std::vector<int> &target_indexes,
                                                       std::vector<int> &assignments,
@@ -237,8 +237,8 @@ void KalmanFilterExperimental::PerformDataAssociation(const std::map<int, Eigen:
                 });
 }
 
-void KalmanFilterExperimental::UnassignUnrealisticTargets(const std::map<int, Eigen::VectorXf> &targets,
-                                                          const std::vector<Eigen::VectorXf> &detections,
+void KalmanFilterExperimental::UnassignUnrealisticTargets(const std::map<int, Eigen::VectorXd> &targets,
+                                                          const std::vector<Eigen::VectorXd> &detections,
                                                           int n_max_dim,
                                                           std::vector<int> &assignments,
                                                           std::vector<CostInt> &costs,
@@ -251,8 +251,8 @@ void KalmanFilterExperimental::UnassignUnrealisticTargets(const std::map<int, Ei
       assignments[i] = -1;
     } else // if a cost is too high
     {
-      Eigen::VectorXf target = targets.at(target_indexes[i]);
-      Eigen::VectorXf detection = detections[assignments[i]];
+      Eigen::VectorXd target = targets.at(target_indexes[i]);
+      Eigen::VectorXd detection = detections[assignments[i]];
       Real d_x = (target(0) - detection(0));
       Real d_y = (target(1) - detection(1));
       Real dist = std::sqrt(d_x * d_x + d_y * d_y);
@@ -272,13 +272,13 @@ void KalmanFilterExperimental::UnassignUnrealisticTargets(const std::map<int, Ei
   }
 }
 
-void KalmanFilterExperimental::ComputePosteriorEstimate(std::map<int, Eigen::VectorXf> &targets,
-                                                        const std::vector<Eigen::VectorXf> &detections,
+void KalmanFilterExperimental::ComputePosteriorEstimate(std::map<int, Eigen::VectorXd> &targets,
+                                                        const std::vector<Eigen::VectorXd> &detections,
                                                         const std::vector<int> &assignments,
                                                         const std::vector<int> &target_indexes)
 {
-  Eigen::VectorXf z_i(kNumOfDetectionVars);
-  Eigen::VectorXf x_i_estimate(kNumOfStateVars);
+  Eigen::VectorXd z_i(kNumOfDetectionVars);
+  Eigen::VectorXd x_i_estimate(kNumOfStateVars);
   for (int i = 0; i < targets.size(); ++i)
   {
     if (assignments[i] != -1)
@@ -294,11 +294,11 @@ void KalmanFilterExperimental::ComputePosteriorEstimate(std::map<int, Eigen::Vec
       targets[target_indexes[i]][7] = detections[assignments[i]][7];
     }
   }
-  Eigen::MatrixXf I = Eigen::MatrixXf::Identity(kNumOfStateVars, kNumOfStateVars);
+  Eigen::MatrixXd I = Eigen::MatrixXd::Identity(kNumOfStateVars, kNumOfStateVars);
   P_ = (I - K_ * H_) * P_;
 }
 
-void KalmanFilterExperimental::MarkLostTargetsAsUnmatched(std::map<int, Eigen::VectorXf> &targets,
+void KalmanFilterExperimental::MarkLostTargetsAsUnmatched(std::map<int, Eigen::VectorXd> &targets,
                                                           const std::vector<int> &assignments,
                                                           const std::vector<int> &target_indexes)
 {
@@ -319,7 +319,7 @@ void KalmanFilterExperimental::MarkLostTargetsAsUnmatched(std::map<int, Eigen::V
   }
 }
 
-void KalmanFilterExperimental::RemoveRecapturedTargetsFromUnmatched(std::map<int, Eigen::VectorXf> &targets,
+void KalmanFilterExperimental::RemoveRecapturedTargetsFromUnmatched(std::map<int, Eigen::VectorXd> &targets,
                                                                     const std::vector<int> &assignments,
                                                                     const std::vector<int> &target_indexes)
 {
@@ -335,10 +335,10 @@ void KalmanFilterExperimental::RemoveRecapturedTargetsFromUnmatched(std::map<int
   }
 }
 
-void KalmanFilterExperimental::MarkAllTargetsAsUnmatched(std::map<int, Eigen::VectorXf> &targets)
+void KalmanFilterExperimental::MarkAllTargetsAsUnmatched(std::map<int, Eigen::VectorXd> &targets)
 {
   // all the targets have been lost
-  for (std::map<int, Eigen::VectorXf>::const_iterator it = targets.begin(); it != targets.end(); ++it)
+  for (std::map<int, Eigen::VectorXd>::const_iterator it = targets.begin(); it != targets.end(); ++it)
   {
     if (unmatched_.find(it->first) != unmatched_.end())
     {
@@ -350,8 +350,8 @@ void KalmanFilterExperimental::MarkAllTargetsAsUnmatched(std::map<int, Eigen::Ve
   }
 }
 
-void KalmanFilterExperimental::AddNewTargets(std::map<int, Eigen::VectorXf> &targets,
-                                             const std::vector<Eigen::VectorXf> &detections,
+void KalmanFilterExperimental::AddNewTargets(std::map<int, Eigen::VectorXd> &targets,
+                                             const std::vector<Eigen::VectorXd> &detections,
                                              const std::vector<int> &assignments)
 {
   std::vector<int> all_detection_indexes(detections.size());
@@ -373,7 +373,7 @@ void KalmanFilterExperimental::AddNewTargets(std::map<int, Eigen::VectorXf> &tar
   }
 }
 
-void KalmanFilterExperimental::DeleteLongLostTargets(std::map<int, Eigen::VectorXf> &targets)
+void KalmanFilterExperimental::DeleteLongLostTargets(std::map<int, Eigen::VectorXd> &targets)
 {
   for (std::map<int, int>::iterator it = unmatched_.begin(); it != unmatched_.end();)
   {
@@ -388,12 +388,12 @@ void KalmanFilterExperimental::DeleteLongLostTargets(std::map<int, Eigen::Vector
   }
 }
 
-void KalmanFilterExperimental::CorrectForOrientationUniqueness(std::map<int, Eigen::VectorXf> &targets)
+void KalmanFilterExperimental::CorrectForOrientationUniqueness(std::map<int, Eigen::VectorXd> &targets)
 {
-  Eigen::VectorXf x_i(kNumOfExtractedFeatures);
-  Eigen::Vector2f velocity_i;
-  Eigen::Vector2f orientation_i;
-  for (std::map<int, Eigen::VectorXf>::iterator it = targets.begin(); it != targets.end(); ++it)
+  Eigen::VectorXd x_i(kNumOfExtractedFeatures);
+  Eigen::Vector2d velocity_i;
+  Eigen::Vector2d orientation_i;
+  for (std::map<int, Eigen::VectorXd>::iterator it = targets.begin(); it != targets.end(); ++it)
   {
     x_i = it->second;
     velocity_i = x_i.segment(2, 2);
@@ -414,11 +414,11 @@ void KalmanFilterExperimental::CorrectForOrientationUniqueness(std::map<int, Eig
 
 void KalmanFilterExperimental::SaveTargets(std::ofstream &file,
                                            int image_idx,
-                                           const std::map<int, Eigen::VectorXf> &targets)
+                                           const std::map<int, Eigen::VectorXd> &targets)
 {
-  Eigen::VectorXf x_i;
+  Eigen::VectorXd x_i;
   file << image_idx << " " << targets.size() << " ";
-  for (std::map<int, Eigen::VectorXf>::const_iterator it = targets.begin(); it != targets.end(); ++it)
+  for (std::map<int, Eigen::VectorXd>::const_iterator it = targets.begin(); it != targets.end(); ++it)
   {
     x_i = it->second;
     file << it->first << " " << x_i(0) << " " << x_i(1) << " " << x_i(2) << " " << x_i(3) << " " << x_i(4) << " "
@@ -429,10 +429,10 @@ void KalmanFilterExperimental::SaveTargets(std::ofstream &file,
 
 void KalmanFilterExperimental::SaveTargetsMatlab(std::ofstream &file,
                                                  int image_idx,
-                                                 const std::map<int, Eigen::VectorXf> &targets)
+                                                 const std::map<int, Eigen::VectorXd> &targets)
 {
-  Eigen::VectorXf x_i;
-  for (std::map<int, Eigen::VectorXf>::const_iterator it = targets.begin(); it != targets.end(); ++it)
+  Eigen::VectorXd x_i;
+  for (std::map<int, Eigen::VectorXd>::const_iterator it = targets.begin(); it != targets.end(); ++it)
   {
     x_i = it->second;
     file << image_idx << " " << it->first << " " << x_i(0) << " " << x_i(1) << " " << x_i(2) << " " << x_i(3) << " "
@@ -440,17 +440,17 @@ void KalmanFilterExperimental::SaveTargetsMatlab(std::ofstream &file,
   }
 }
 
-void KalmanFilterExperimental::SaveImagesWithVectors(int image_idx, const std::map<int, Eigen::VectorXf> &targets)
+void KalmanFilterExperimental::SaveImagesWithVectors(int image_idx, const std::map<int, Eigen::VectorXd> &targets)
 {
   cv::Mat image;
   image = image_processing_engine_.GetSourceImage();
 
-  Eigen::VectorXf x_i;
+  Eigen::VectorXd x_i;
   cv::Point2f center;
   cv::Scalar color(255, 127, 0);
   Real length = 0.0f;
 
-  for (std::map<int, Eigen::VectorXf>::const_iterator cit = targets.begin(); cit != targets.end(); ++cit)
+  for (std::map<int, Eigen::VectorXd>::const_iterator cit = targets.begin(); cit != targets.end(); ++cit)
   {
     x_i = cit->second;
     center = cv::Point2f(x_i(0), x_i(1));
@@ -490,14 +490,14 @@ void KalmanFilterExperimental::SaveImagesWithVectors(int image_idx, const std::m
   cv::imwrite(output_image_name, image);
 }
 
-void KalmanFilterExperimental::SaveImagesWithRectangles(int image_idx, const std::map<int, Eigen::VectorXf> &targets)
+void KalmanFilterExperimental::SaveImagesWithRectangles(int image_idx, const std::map<int, Eigen::VectorXd> &targets)
 {
   cv::Mat image;
   image_processing_engine_.ComposeImageForFilterOutput(image_idx, image);
 
-  for (std::map<int, Eigen::VectorXf>::const_iterator cit = targets.begin(); cit != targets.end(); ++cit)
+  for (std::map<int, Eigen::VectorXd>::const_iterator cit = targets.begin(); cit != targets.end(); ++cit)
   {
-    Eigen::VectorXf x_i = cit->second;
+    Eigen::VectorXd x_i = cit->second;
     cv::Scalar color;
     if (targets_colors_.find(cit->first) != targets_colors_.end())
     {
@@ -529,15 +529,15 @@ void KalmanFilterExperimental::SaveImagesWithRectangles(int image_idx, const std
   cv::imwrite(output_image_name, image);
 }
 
-CostInt KalmanFilterExperimental::InitializeCostMatrix(const std::map<int, Eigen::VectorXf> &targets,
-                                                       const std::vector<Eigen::VectorXf> &detections,
+CostInt KalmanFilterExperimental::InitializeCostMatrix(const std::map<int, Eigen::VectorXd> &targets,
+                                                       const std::vector<Eigen::VectorXd> &detections,
                                                        std::vector<std::vector<CostInt>> &cost_matrix,
                                                        std::vector<int> &target_indexes)
 {
   target_indexes.clear();
 
-  Eigen::VectorXf target(kNumOfExtractedFeatures);
-  Eigen::VectorXf detection(kNumOfExtractedFeatures);
+  Eigen::VectorXd target(kNumOfExtractedFeatures);
+  Eigen::VectorXd detection(kNumOfExtractedFeatures);
   Real cost = 0.0;
   Real max_cost = 0;
   int i = 0;
@@ -546,7 +546,7 @@ CostInt KalmanFilterExperimental::InitializeCostMatrix(const std::map<int, Eigen
   Real max_dist = Real(std::sqrt(parameter_handler_.GetSubimageXSize() * parameter_handler_.GetSubimageXSize()
                                      + parameter_handler_.GetSubimageYSize() * parameter_handler_.GetSubimageYSize()));
 //  Real area_increase = 0.0;
-  for (std::map<int, Eigen::VectorXf>::const_iterator it = targets.begin(); it != targets.end(); ++it, ++i)
+  for (std::map<int, Eigen::VectorXd>::const_iterator it = targets.begin(); it != targets.end(); ++it, ++i)
   {
     target_indexes.push_back(it->first);
     target = it->second;

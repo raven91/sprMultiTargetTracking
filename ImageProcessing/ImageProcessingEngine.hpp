@@ -24,7 +24,7 @@ class ImageProcessingEngine
   ~ImageProcessingEngine();
 
   void CreateNewImageProcessingOutputFile(ParameterHandlerExperimental &parameter_handler);
-  void RetrieveBacterialData(int image, std::vector<Eigen::VectorXf> &detections);
+  void RetrieveBacterialData(int image, std::vector<Eigen::VectorXd> &detections);
   void ComposeImageForFilterOutput(int image_idx, cv::Mat &image);
 
   const cv::Mat &GetSourceImage();
@@ -66,7 +66,7 @@ class ImageProcessingEngine
   void FindImprovedContours(const cv::Mat &I);
   void DrawContours();
   void SaveImage(const cv::Mat &I, int image);
-  void SaveDetectedObjects(int image, std::vector<Eigen::VectorXf> &detections);
+  void SaveDetectedObjects(int image, std::vector<Eigen::VectorXd> &detections);
   bool IsContourInRoi(const std::vector<cv::Point> &contour);
   void AnalyzeConvexityDefectsOnePass(const cv::Mat &I, cv::Mat &O);
   void AnalyzeConvexityDefectsRecursively();

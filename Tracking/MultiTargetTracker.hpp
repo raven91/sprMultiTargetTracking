@@ -33,9 +33,9 @@ class MultitargetTracker
 
  private:
 
-  std::map<int, Eigen::VectorXf> targets_;    // i -> x_i y_i v_x_i v_y_i area_i slope_i width_i height_i
-  std::vector<Eigen::VectorXf> detections_;   // observations
-  std::map<int, std::vector<Eigen::VectorXf>> trajectories_;   // vector of vectors of i -> x_i y_i v_x_i v_y_i area_i slope_i width_i height_i
+  std::map<int, Eigen::VectorXd> targets_;    // i -> x_i y_i v_x_i v_y_i area_i slope_i width_i height_i
+  std::vector<Eigen::VectorXd> detections_;   // observations
+  std::map<int, std::vector<Eigen::VectorXd>> trajectories_;   // vector of vectors of i -> x_i y_i v_x_i v_y_i area_i slope_i width_i height_i
   std::map<int, std::vector<int>> timestamps_;   // vector of timestamps for bacteria
 
 };

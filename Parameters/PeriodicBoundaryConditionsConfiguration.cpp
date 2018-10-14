@@ -73,10 +73,10 @@ void PeriodicBoundaryConditionsConfiguration::ApplyPeriodicBoundaryConditions(Re
 }
 
 //Restrict particle coordinates to the simulation box
-void PeriodicBoundaryConditionsConfiguration::ApplyPeriodicBoundaryConditions(std::map<int, Eigen::VectorXf> &targets)
+void PeriodicBoundaryConditionsConfiguration::ApplyPeriodicBoundaryConditions(std::map<int, Eigen::VectorXd> &targets)
 {
 #pragma unroll
-  for (std::map<int, Eigen::VectorXf>::iterator it = targets.begin(); it != targets.end(); ++it)
+  for (std::map<int, Eigen::VectorXd>::iterator it = targets.begin(); it != targets.end(); ++it)
   {
     (it->second)[0] -= std::floor((it->second[0]) * x_rsize_) * x_size_;
     (it->second)[1] -= std::floor((it->second[1]) * y_rsize_) * y_size_;

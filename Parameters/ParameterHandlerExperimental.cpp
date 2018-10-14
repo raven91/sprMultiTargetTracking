@@ -23,6 +23,7 @@ ParameterHandlerExperimental::ParameterHandlerExperimental(const std::string &fi
   parameters_file >> kalman_filter_subfolder_ >> kalman_filter_subfolder_;
   parameters_file >> kalman_filter_output_file_name_ >> kalman_filter_output_file_name_;
   parameters_file >> kalman_filter_matlab_output_file_name_ >> kalman_filter_matlab_output_file_name_;
+  parameters_file >> track_linking_subfolder_ >> track_linking_subfolder_;
   parameters_file >> track_linking_output_file_name_ >> track_linking_output_file_name_;
   parameters_file >> track_linking_matlab_output_file_name_ >> track_linking_matlab_output_file_name_;
   parameters_file >> data_analysis_subfolder_ >> data_analysis_subfolder_;
@@ -66,6 +67,10 @@ ParameterHandlerExperimental::ParameterHandlerExperimental(const std::string &fi
   nl_means_denoising_search_window_size_ = (int) parameters_dictionary["nl_means_denoising_search_window_size"];
   contrast_ = parameters_dictionary["contrast"];
   brightness_ = (int) parameters_dictionary["brightness"];
+  track_linking_roi_margin_ = (int) parameters_dictionary["track_linking_roi_margin"];
+  track_linking_intersection_time_ = (int) parameters_dictionary["track_linking_intersection_time"];
+  track_linking_lag_time_ = (int) parameters_dictionary["track_linking_lag_time"];
+  track_linking_data_association_cost_ = (int) parameters_dictionary["track_linking_data_association_cost"];
 }
 
 ParameterHandlerExperimental::~ParameterHandlerExperimental()
@@ -116,6 +121,11 @@ const std::string &ParameterHandlerExperimental::GetKalmanFilterOutputFileName()
 const std::string &ParameterHandlerExperimental::GetKalmanFilterMatlabOutputFileName()
 {
   return kalman_filter_matlab_output_file_name_;
+}
+
+const std::string &ParameterHandlerExperimental::GetTrackLinkingSubfolder()
+{
+  return track_linking_subfolder_;
 }
 
 const std::string &ParameterHandlerExperimental::GetTrackLinkingOutputFileName()
@@ -271,4 +281,24 @@ Real ParameterHandlerExperimental::GetContrast()
 int ParameterHandlerExperimental::GetBrightness()
 {
   return brightness_;
+}
+
+int ParameterHandlerExperimental::GetTrackLinkingRoiMargin()
+{
+  return track_linking_roi_margin_;
+}
+
+int ParameterHandlerExperimental::GetTrackLinkingIntersectionTime()
+{
+  return track_linking_intersection_time_;
+}
+
+int ParameterHandlerExperimental::GetTrackLinkingLagTime()
+{
+  return track_linking_lag_time_;
+}
+
+Real ParameterHandlerExperimental::GetTrackLinkingDataAssociationCost()
+{
+  return track_linking_data_association_cost_;
 }

@@ -24,12 +24,12 @@ class KalmanFilterExperimental
   ~KalmanFilterExperimental();
 
   void CreateNewKalmanFilterOutputFiles(ParameterHandlerExperimental &parameter_handler);
-  void InitializeTargets(std::map<int, Eigen::VectorXf> &targets, const std::vector<Eigen::VectorXf> &detections);
-  void InitializeTargets(std::map<int, Eigen::VectorXf> &targets, std::ifstream &file);
-  void ObtainNewDetections(std::vector<Eigen::VectorXf> &detections, std::ifstream &file);
+  void InitializeTargets(std::map<int, Eigen::VectorXd> &targets, const std::vector<Eigen::VectorXd> &detections);
+  void InitializeTargets(std::map<int, Eigen::VectorXd> &targets, std::ifstream &file);
+  void ObtainNewDetections(std::vector<Eigen::VectorXd> &detections, std::ifstream &file);
   void PerformEstimation(int image_idx,
-                         std::map<int, Eigen::VectorXf> &targets,
-                         const std::vector<Eigen::VectorXf> &detections);
+                         std::map<int, Eigen::VectorXd> &targets,
+                         const std::vector<Eigen::VectorXd> &detections);
 
  private:
 
@@ -43,55 +43,55 @@ class KalmanFilterExperimental
   int max_prediction_time_;
   int max_target_index_;
   Real costs_order_of_magnitude_;
-  Eigen::MatrixXf I_;
-  Eigen::MatrixXf A_;
-  Eigen::MatrixXf W_;
-  Eigen::MatrixXf H_;
-  Eigen::MatrixXf Q_;
-  Eigen::MatrixXf P_;
-  Eigen::MatrixXf K_;
+  Eigen::MatrixXd I_;
+  Eigen::MatrixXd A_;
+  Eigen::MatrixXd W_;
+  Eigen::MatrixXd H_;
+  Eigen::MatrixXd Q_;
+  Eigen::MatrixXd P_;
+  Eigen::MatrixXd K_;
   std::map<int, cv::Scalar> targets_colors_;
   cv::RNG rng_; // random color generator
 
-  void ComputePriorEstimate(std::map<int, Eigen::VectorXf> &targets);
+  void ComputePriorEstimate(std::map<int, Eigen::VectorXd> &targets);
   void ComputeKalmanGainMatrix();
-  void PerformDataAssociation(const std::map<int, Eigen::VectorXf> &targets,
-                              const std::vector<Eigen::VectorXf> &detections,
+  void PerformDataAssociation(const std::map<int, Eigen::VectorXd> &targets,
+                              const std::vector<Eigen::VectorXd> &detections,
                               int n_max_dim,
                               std::vector<int> &target_indexes,
                               std::vector<int> &assignments,
                               std::vector<CostInt> &costs);
-  void UnassignUnrealisticTargets(const std::map<int, Eigen::VectorXf> &targets,
-                                  const std::vector<Eigen::VectorXf> &detections,
+  void UnassignUnrealisticTargets(const std::map<int, Eigen::VectorXd> &targets,
+                                  const std::vector<Eigen::VectorXd> &detections,
                                   int n_max_dim,
                                   std::vector<int> &assignments,
                                   std::vector<CostInt> &costs,
                                   const std::vector<int> &target_indexes);
-  void ComputePosteriorEstimate(std::map<int, Eigen::VectorXf> &targets,
-                                const std::vector<Eigen::VectorXf> &detections,
+  void ComputePosteriorEstimate(std::map<int, Eigen::VectorXd> &targets,
+                                const std::vector<Eigen::VectorXd> &detections,
                                 const std::vector<int> &assignments,
                                 const std::vector<int> &target_indexes);
-  void MarkLostTargetsAsUnmatched(std::map<int, Eigen::VectorXf> &targets,
+  void MarkLostTargetsAsUnmatched(std::map<int, Eigen::VectorXd> &targets,
                                   const std::vector<int> &assignments,
                                   const std::vector<int> &target_indexes);
-  void MarkAllTargetsAsUnmatched(std::map<int, Eigen::VectorXf> &targets);
-  void RemoveRecapturedTargetsFromUnmatched(std::map<int, Eigen::VectorXf> &targets,
+  void MarkAllTargetsAsUnmatched(std::map<int, Eigen::VectorXd> &targets);
+  void RemoveRecapturedTargetsFromUnmatched(std::map<int, Eigen::VectorXd> &targets,
                                             const std::vector<int> &assignments,
                                             const std::vector<int> &target_indexes);
-  void AddNewTargets(std::map<int, Eigen::VectorXf> &targets,
-                     const std::vector<Eigen::VectorXf> &detections,
+  void AddNewTargets(std::map<int, Eigen::VectorXd> &targets,
+                     const std::vector<Eigen::VectorXd> &detections,
                      const std::vector<int> &assignments);
-  void DeleteLongLostTargets(std::map<int, Eigen::VectorXf> &targets);
-  void CorrectForOrientationUniqueness(std::map<int, Eigen::VectorXf> &targets);
-  CostInt InitializeCostMatrix(const std::map<int, Eigen::VectorXf> &targets,
-                               const std::vector<Eigen::VectorXf> &detections,
+  void DeleteLongLostTargets(std::map<int, Eigen::VectorXd> &targets);
+  void CorrectForOrientationUniqueness(std::map<int, Eigen::VectorXd> &targets);
+  CostInt InitializeCostMatrix(const std::map<int, Eigen::VectorXd> &targets,
+                               const std::vector<Eigen::VectorXd> &detections,
                                std::vector<std::vector<CostInt>> &cost_matrix,
                                std::vector<int> &target_indexes);
 
-  void SaveTargets(std::ofstream &file, int image_idx, const std::map<int, Eigen::VectorXf> &targets);
-  void SaveTargetsMatlab(std::ofstream &file, int image_idx, const std::map<int, Eigen::VectorXf> &targets);
-  void SaveImagesWithVectors(int image_idx, const std::map<int, Eigen::VectorXf> &targets);
-  void SaveImagesWithRectangles(int image_idx, const std::map<int, Eigen::VectorXf> &targets);
+  void SaveTargets(std::ofstream &file, int image_idx, const std::map<int, Eigen::VectorXd> &targets);
+  void SaveTargetsMatlab(std::ofstream &file, int image_idx, const std::map<int, Eigen::VectorXd> &targets);
+  void SaveImagesWithVectors(int image_idx, const std::map<int, Eigen::VectorXd> &targets);
+  void SaveImagesWithRectangles(int image_idx, const std::map<int, Eigen::VectorXd> &targets);
   cv::Point2f RotatePoint(const cv::Point2f &p, float rad);
 
 };

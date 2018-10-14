@@ -23,6 +23,7 @@ class ParameterHandlerExperimental
   const std::string &GetKalmanFilterSubfolder();
   const std::string &GetKalmanFilterOutputFileName();
   const std::string &GetKalmanFilterMatlabOutputFileName();
+  const std::string &GetTrackLinkingSubfolder();
   const std::string &GetTrackLinkingOutputFileName();
   const std::string &GetTrackLinkingMatlabOutputFileName();
   const std::string &GetDataAnalysisSubfolder();
@@ -55,6 +56,10 @@ class ParameterHandlerExperimental
   int GetNlMeansDenoisingSearchWindowSize();
   Real GetContrast();
   int GetBrightness();
+  int GetTrackLinkingRoiMargin();
+  int GetTrackLinkingIntersectionTime();
+  int GetTrackLinkingLagTime();
+  Real GetTrackLinkingDataAssociationCost();
 
  private:
 
@@ -67,6 +72,7 @@ class ParameterHandlerExperimental
   std::string kalman_filter_subfolder_;
   std::string kalman_filter_output_file_name_;
   std::string kalman_filter_matlab_output_file_name_;
+  std::string track_linking_subfolder_;
   std::string track_linking_output_file_name_;
   std::string track_linking_matlab_output_file_name_;
   std::string data_analysis_subfolder_;
@@ -99,6 +105,10 @@ class ParameterHandlerExperimental
   int nl_means_denoising_search_window_size_;
   Real contrast_;
   int brightness_;
+  int track_linking_roi_margin_;
+  int track_linking_intersection_time_;
+  int track_linking_lag_time_;
+  Real track_linking_data_association_cost_;
 
 };
 

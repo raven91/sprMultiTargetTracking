@@ -11,7 +11,7 @@
 #include <cassert>
 #include <cmath>
 
-typedef float Real;
+typedef double Real;
 typedef long CostInt;
 
 const int kNumOfStateVars = 4;          // x,y,v_x,v_y

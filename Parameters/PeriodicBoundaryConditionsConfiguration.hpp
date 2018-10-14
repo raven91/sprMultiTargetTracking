@@ -34,7 +34,7 @@ class PeriodicBoundaryConditionsConfiguration
   void ClassCEffectiveParticleDistance_unsigned(Real x_i, Real y_i, Real x_j, Real y_j, Real &dx, Real &dy);
 
   void ApplyPeriodicBoundaryConditions(Real x, Real y, Real &x_pbc, Real &y_pbc);
-  void ApplyPeriodicBoundaryConditions(std::map<int, Eigen::VectorXf> &targets);
+  void ApplyPeriodicBoundaryConditions(std::map<int, Eigen::VectorXd> &targets);
 
  private:
 

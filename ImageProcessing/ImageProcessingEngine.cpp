@@ -45,7 +45,7 @@ void ImageProcessingEngine::CreateNewImageProcessingOutputFile(ParameterHandlerE
   assert(image_processing_output_file_.is_open());
 }
 
-void ImageProcessingEngine::RetrieveBacterialData(int image, std::vector<Eigen::VectorXf> &detections)
+void ImageProcessingEngine::RetrieveBacterialData(int image, std::vector<Eigen::VectorXd> &detections)
 {
   std::cout << "image processing: image#" << image << std::endl;
 
@@ -379,7 +379,7 @@ void ImageProcessingEngine::SaveImage(const cv::Mat &I, int image)
 
 // according to the format
 // i -> x_i y_i v_x_i v_y_i area_i slope_i width_i height_i
-void ImageProcessingEngine::SaveDetectedObjects(int image, std::vector<Eigen::VectorXf> &detections)
+void ImageProcessingEngine::SaveDetectedObjects(int image, std::vector<Eigen::VectorXd> &detections)
 {
   detections.clear();
 
@@ -387,7 +387,7 @@ void ImageProcessingEngine::SaveDetectedObjects(int image, std::vector<Eigen::Ve
 
   cv::Vec4f fitted_line;
   cv::RotatedRect min_rect;
-  Eigen::VectorXf new_detection(kNumOfExtractedFeatures);
+  Eigen::VectorXd new_detection(kNumOfExtractedFeatures);
   cv::Moments mu;
 
   for (int b = 0; b < (int) contours_.size(); ++b)

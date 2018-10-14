@@ -43,296 +43,75 @@ void TrajectoryLinker::CreateNewTrackLinkingOutputFiles(ParameterHandlerExperime
   assert(track_linking_matlab_output_file_.is_open());
 }
 
-void TrajectoryLinker::InitializeTrajectories(std::map<int, std::vector<Eigen::VectorXf>> &trajectories,
+void TrajectoryLinker::InitializeTrajectories(std::map<int, std::vector<Eigen::VectorXd>> &trajectories,
                                               std::map<int, std::vector<int>> &timestamps,
                                               std::ifstream &file)
 {
-  std::cout << "trajectory initialization started" << std::endl;
-
   int last_index = 0;
-  Eigen::VectorXf new_trajectory = Eigen::MatrixXf::Zero(kNumOfExtractedFeatures, 1);
+  Eigen::VectorXd new_target = Eigen::MatrixXd::Zero(kNumOfExtractedFeatures, 1);
   int time_idx = 0;
-  int trajectory_idx = 0;
-  int number_of_trajectories = 0;
+  int target_idx = 0;
+  int number_of_targets = 0;
 
-  while (file >> time_idx >> number_of_trajectories)
+  while (file >> time_idx >> number_of_targets)
   {
-    for (int b = 0; b < number_of_trajectories; ++b)
+    for (int b = 0; b < number_of_targets; ++b)
     {
-      file >> trajectory_idx
-           >> new_trajectory(0) >> new_trajectory(1) >> new_trajectory(2) >> new_trajectory(3)
-           >> new_trajectory(4) >> new_trajectory(5) >> new_trajectory(6) >> new_trajectory(7);
+      file >> target_idx
+           >> new_target(0) >> new_target(1) >> new_target(2) >> new_target(3)
+           >> new_target(4) >> new_target(5) >> new_target(6) >> new_target(7);
 
-      if (trajectories.find(trajectory_idx) == trajectories.end())
+      if (trajectories.find(target_idx) == trajectories.end())
       {
-        trajectories[trajectory_idx] = std::vector<Eigen::VectorXf>();
-        timestamps[trajectory_idx] = std::vector<int>();
+        trajectories[target_idx] = std::vector<Eigen::VectorXd>();
+        timestamps[target_idx] = std::vector<int>();
       }
-      trajectories[trajectory_idx].push_back(new_trajectory);
-      timestamps[trajectory_idx].push_back(time_idx);
+      trajectories[target_idx].push_back(new_target);
+      timestamps[target_idx].push_back(time_idx);
     }
   }
 }
 
-void TrajectoryLinker::PerformTrackLinking(std::map<int, std::vector<Eigen::VectorXf>> &trajectories,
+void TrajectoryLinker::PerformTrackLinking(std::map<int, std::vector<Eigen::VectorXd>> &trajectories,
                                            std::map<int, std::vector<int>> &timestamps)
 {
-  std::cout << "trajectory linking started" << std::endl;
+  std::cout << "trajectory linking" << std::endl;
 
-  int counter = 0;
-  const int delta = 2;
-  const int tau = 2;
-  int n_max_dim = 0;
-  double max_elem = 0;
-
-  n_max_dim = (int) trajectories.size();
+  int n_max_dim = (int) trajectories.size();
   std::vector<int> target_indexes;
-  std::vector<std::vector<CostInt>> cost_matrix(n_max_dim, std::vector<CostInt>(n_max_dim, 0));
-
-  std::map<int, std::vector<Eigen::VectorXf>>::iterator iter_trj_outer;
-  for (iter_trj_outer = trajectories.begin(); iter_trj_outer != trajectories.end(); ++iter_trj_outer)
-  {
-    std::cout << "outer_trajectory #" << iter_trj_outer->first << std::endl;
-
-    std::map<int, std::vector<Eigen::VectorXf>>::iterator iter_trj_inner;
-    for (iter_trj_inner = trajectories.begin(); iter_trj_inner != trajectories.end(); ++iter_trj_inner)
-    {
-      int first_trj_idx = iter_trj_outer->first;
-      int second_trj_idx = iter_trj_inner->first;
-
-      int Ti_e = timestamps[first_trj_idx][timestamps[first_trj_idx].size() - 1];
-      int Tj_b = timestamps[second_trj_idx][0];
-
-      int Ti_b = timestamps[first_trj_idx][0];
-      int Tj_e = timestamps[second_trj_idx][timestamps[second_trj_idx].size() - 1];
-
-      // EXCLUDING trajectories with length < tau + 1
-      if ((iter_trj_outer->second.size() <= tau) || (iter_trj_inner->second.size() <= tau))
-      {
-        cost_matrix[iter_trj_outer->first][iter_trj_inner->first] = -1; // TODO: make sure the indexing is correct
-        continue;
-      }
-
-      if (iter_trj_inner->first == iter_trj_outer->first)
-      {
-        cost_matrix[iter_trj_outer->first][iter_trj_inner->first] = -1;
-        continue; // TODO: is it required?
-      }
-
-      // trajectories NOT intersect Ti goes BEFORE Tj
-      if (Tj_b - Ti_e >= 1 && Tj_b - Ti_e <= delta)
-      {
-        if (!CheckDistance(iter_trj_outer, iter_trj_inner))
-        {
-          cost_matrix[iter_trj_outer->first][iter_trj_inner->first] = -1;
-          continue;
-        }
-        int s = Tj_b - Ti_e;
-        cost_matrix[first_trj_idx][second_trj_idx] =
-            CountCostMatrixElementNOIntersection(iter_trj_outer, iter_trj_inner, s);
-        if (max_elem < cost_matrix[first_trj_idx][second_trj_idx])
-        {
-          max_elem = cost_matrix[first_trj_idx][second_trj_idx];
-        }
-      }
-
-      // if trajectories do NOT intersect	Ti goes AFTER Tj
-      if (Ti_b - Tj_e > 0 && Tj_e - Ti_b <= delta)
-      {
-        if (!CheckDistance(iter_trj_inner, iter_trj_outer))
-        {
-          cost_matrix[iter_trj_outer->first][iter_trj_inner->first] = -1;
-          continue;
-        }
-        int s = Ti_b - Tj_e;
-        cost_matrix[first_trj_idx][second_trj_idx] =
-            CountCostMatrixElementNOIntersection(iter_trj_inner, iter_trj_outer, s);
-        if (max_elem < cost_matrix[first_trj_idx][second_trj_idx])
-        {
-          max_elem = cost_matrix[first_trj_idx][second_trj_idx];
-        }
-      }
-
-      // if trajectories intersect	Ti goes BEFORE Tj
-      if ((Ti_e - Tj_b >= 0) && (Ti_e - Tj_b <= tau))
-      {
-        if (!CheckDistance(iter_trj_outer, iter_trj_inner))
-        {
-          cost_matrix[iter_trj_outer->first][iter_trj_inner->first] = -1;
-          continue;
-        }
-        cost_matrix[first_trj_idx][second_trj_idx] =
-            CountCostMatrixElementIntersection(iter_trj_outer, iter_trj_inner, Ti_e, Tj_b);
-        if (max_elem < cost_matrix[first_trj_idx][second_trj_idx])
-        {
-          max_elem = cost_matrix[first_trj_idx][second_trj_idx];
-        }
-      }
-
-      // trajectories intersect	Ti goes AFTER Tj
-      if (Tj_e - Ti_b >= 0 && Tj_e - Ti_b <= tau)
-      {
-        if (CheckDistance(iter_trj_inner, iter_trj_outer) == false)
-        {
-          cost_matrix[iter_trj_outer->first][iter_trj_inner->first] = -1;
-          continue;
-        }
-        cost_matrix[first_trj_idx][second_trj_idx] =
-            CountCostMatrixElementIntersection(iter_trj_inner, iter_trj_outer, Tj_e, Ti_b);
-        if (max_elem < cost_matrix[first_trj_idx][second_trj_idx])
-        {
-          max_elem = cost_matrix[first_trj_idx][second_trj_idx];
-        }
-      } else
-      {
-        cost_matrix[iter_trj_outer->first][iter_trj_inner->first] = -1;
-      }
-
-    } // iter_trj_inner
-  } // iter_trj_outer
-
-  InitializeCostMatrixForTrackLinking(trajectories, timestamps, max_elem, cost_matrix, target_indexes);
-
   std::vector<int> assignments(n_max_dim, -1);
-  std::vector<CostInt> costs(n_max_dim, -1);
+  std::vector<CostInt> costs(n_max_dim);
+
   PerformDataAssociationForTrackLinking(trajectories,
                                         timestamps,
-                                        max_elem,
+                                        n_max_dim,
                                         target_indexes,
-                                        cost_matrix,
                                         assignments,
                                         costs);
-  PerformTrackConnecting(trajectories, timestamps, target_indexes, assignments, costs, delta, tau);
+  UnassignUnrealisticAssociations(assignments, costs);
+  ConnectBrokenTrajectories(trajectories, timestamps, target_indexes, assignments, costs);
   DeleteShortTrajectories(trajectories, timestamps);
   FillHolesInMaps(trajectories, timestamps);
   SaveTrajectories(track_linking_output_file_, trajectories, timestamps);
   SaveTrajectoriesMatlab(track_linking_matlab_output_file_, trajectories, timestamps);
 }
 
-bool TrajectoryLinker::CheckDistance(const std::map<int,
-                                                    std::vector<Eigen::VectorXf>>::iterator &iter_trj_outer,
-                                     const std::map<int,
-                                                    std::vector<Eigen::VectorXf>>::iterator &iter_trj_inner)
-{
-  int sigma = 25;
-  if (((iter_trj_outer->second[iter_trj_outer->second.size() - 1](0)) < sigma)
-      && ((iter_trj_inner->second[0](0)) < sigma))
-  {
-    return false;
-  }
-  if (((iter_trj_outer->second[iter_trj_outer->second.size() - 1](1)) < sigma)
-      && ((iter_trj_inner->second[0](1)) < sigma))
-  {
-    return false;
-  }
-  if ((parameter_handler_.GetSubimageXSize() - (iter_trj_outer->second[iter_trj_outer->second.size() - 1](0)) < sigma)
-      && (parameter_handler_.GetSubimageXSize() - (iter_trj_inner->second[0](0)) < sigma))
-  {
-    return false;
-  }
-  if ((parameter_handler_.GetSubimageYSize() - (iter_trj_outer->second[iter_trj_outer->second.size() - 1](1)) < sigma)
-      && (parameter_handler_.GetSubimageYSize() - (iter_trj_inner->second[0](1)) < sigma))
-  {
-    return false;
-  }
-  return true;
-}
-
-CostInt TrajectoryLinker::CountCostMatrixElementNOIntersection(
-    const std::map<int, std::vector<Eigen::VectorXf>>::iterator &iter_trj_outer,
-    const std::map<int, std::vector<Eigen::VectorXf>>::iterator &iter_trj_inner,
-    int s)
-{
-  Real v_t_x_outer = iter_trj_outer->second[iter_trj_outer->second.size() - 1](0)
-      - iter_trj_outer->second[iter_trj_outer->second.size() - 2](0);
-  Real v_t_y_outer = iter_trj_outer->second[iter_trj_outer->second.size() - 1](1)
-      - iter_trj_outer->second[iter_trj_outer->second.size() - 2](1);
-  Real v_t_x_inner = iter_trj_inner->second[1](0) - (iter_trj_inner->second[0](0));
-  Real v_t_y_inner = iter_trj_inner->second[1](1) - (iter_trj_inner->second[0](1));
-
-  std::vector<std::vector<Real>> outer_vect;
-  std::vector<std::vector<Real>> inner_vect;
-
-  // building continuation of outer trajectory
-  Real continued_trj_x = iter_trj_outer->second[iter_trj_outer->second.size() - 1](0);
-  Real continued_trj_y = iter_trj_outer->second[iter_trj_outer->second.size() - 1](1);
-  for (int continuation_time = 0; continuation_time <= s; ++continuation_time)
-  {
-    if (continuation_time == 0) // push the last element of outer trajectory
-    {
-      std::vector<Real> continued_trj{continued_trj_x, continued_trj_y};
-      outer_vect.push_back(continued_trj);
-    } else // push other elements
-    {
-      continued_trj_x += v_t_x_outer;
-      continued_trj_y += v_t_y_outer;
-
-      std::vector<Real> continued_trj{continued_trj_x, continued_trj_y};
-      outer_vect.push_back(continued_trj);
-    }
-  }
-
-  // building beginning of inner trajectory
-  continued_trj_x = iter_trj_inner->second[0](0);
-  continued_trj_y = iter_trj_inner->second[0](1);
-  for (int continuation_time = 0; continuation_time <= s; ++continuation_time)
-  {
-    if (continuation_time == 0) // push the first element of inner trajectory
-    {
-      std::vector<Real> continued_trj{continued_trj_x, continued_trj_y};
-      inner_vect.push_back(continued_trj);
-    } else // push other elements
-    {
-      continued_trj_x -= v_t_x_inner;
-      continued_trj_y -= v_t_y_inner;
-
-      std::vector<Real> continued_trj{continued_trj_x, continued_trj_y};
-      inner_vect.push_back(continued_trj);
-    }
-  }
-  std::reverse(inner_vect.begin(), inner_vect.end());
-
-  double res = 0;
-  for (int continuation_time = 0; continuation_time <= s; ++continuation_time)
-  {
-    res += std::sqrt(std::pow((outer_vect[continuation_time][0] - inner_vect[continuation_time][0]), 2) +
-        std::pow((outer_vect[continuation_time][1] - inner_vect[continuation_time][1]), 2));
-  }
-  return res / (s + 1) * costs_order_of_magnitude_;
-}
-
-CostInt TrajectoryLinker::CountCostMatrixElementIntersection(
-    const std::map<int, std::vector<Eigen::VectorXf>>::iterator &iter_trj_outer,
-    const std::map<int, std::vector<Eigen::VectorXf>>::iterator &iter_trj_inner,
-    int Ti_e,
-    int Tj_b)
-{
-  double res = 0;
-  int s = Ti_e - Tj_b;
-
-  for (int intersection_time = 0; intersection_time <= s; ++intersection_time)
-  {
-    res +=
-        std::sqrt(std::pow((iter_trj_outer->second[iter_trj_outer->second.size() - 1 - s + intersection_time](0)
-            - iter_trj_inner->second[intersection_time](0)), 2) +
-            std::pow((iter_trj_outer->second[iter_trj_outer->second.size() - 1 - s + intersection_time](1)
-                - iter_trj_inner->second[intersection_time](1)), 2));
-  }
-  return res / (s + 1) * costs_order_of_magnitude_;
-}
-
 void TrajectoryLinker::PerformDataAssociationForTrackLinking(std::map<int,
-                                                                      std::vector<Eigen::VectorXf>> &trajectories,
+                                                                      std::vector<Eigen::VectorXd>> &trajectories,
                                                              std::map<int, std::vector<int>> &timestamps,
-                                                             double &max_elem,
+                                                             int n_max_dim,
                                                              std::vector<int> &target_indexes,
-                                                             std::vector<std::vector<CostInt>> &cost_matrix,
                                                              std::vector<int> &assignments,
                                                              std::vector<CostInt> &costs)
 {
-  std::cout << "data association for track linking" << std::endl;
-  CostInt max_cost = max_elem;
-  HungarianAlgorithm hungarian_algorithm(target_indexes.size(), cost_matrix);
+  std::cout << "track linking | data association" << std::endl;
+
+  std::vector<std::vector<CostInt>> cost_matrix(n_max_dim, std::vector<CostInt>(n_max_dim, -1));
+  CostInt max_cost = InitializeCostMatrixForTrackLinking(trajectories,
+                                                         timestamps,
+                                                         cost_matrix,
+                                                         target_indexes);
+  HungarianAlgorithm hungarian_algorithm(n_max_dim, cost_matrix);
   hungarian_algorithm.Start(assignments, costs);
   std::for_each(costs.begin(),
                 costs.end(),
@@ -342,158 +121,162 @@ void TrajectoryLinker::PerformDataAssociationForTrackLinking(std::map<int,
                 });
 }
 
-void TrajectoryLinker::PerformTrackConnecting(std::map<int, std::vector<Eigen::VectorXf>> &trajectories,
-                                              std::map<int, std::vector<int>> &timestamps,
-                                              std::vector<int> &target_indexes,
-                                              std::vector<int> &assignments,
-                                              std::vector<CostInt> &costs,
-                                              int delta,
-                                              int tau)
+void TrajectoryLinker::UnassignUnrealisticAssociations(std::vector<int> &assignments, const std::vector<CostInt> &costs)
 {
-  std::cout << "unification of tracklings" << std::endl;
+  for (int i = 0; i < costs.size(); ++i)
+  {
+    if (costs[i] > parameter_handler_.GetTrackLinkingDataAssociationCost())
+    {
+      assignments[i] = -1;
+    }
+  }
+}
 
-  int max_allowed_distance = 15 * std::min(delta, tau);
+void TrajectoryLinker::ConnectBrokenTrajectories(std::map<int, std::vector<Eigen::VectorXd>> &trajectories,
+                                                 std::map<int, std::vector<int>> &timestamps,
+                                                 std::vector<int> &target_indexes,
+                                                 std::vector<int> &assignments,
+                                                 std::vector<CostInt> &costs)
+{
+  std::cout << "track linking | unification of tracklings" << std::endl;
 
   // check the distance
   for (int i = 0; i < costs.size(); ++i)
   {
-    if (costs[i] > max_allowed_distance)
+    if (assignments[i] != -1)
     {
-      continue;
-    }
+      int min_idx = std::min(target_indexes[i], assignments[i]);
+      int max_idx = std::max(target_indexes[i], assignments[i]);
 
-    int min_idx = std::min(target_indexes[i], assignments[i]);
-    int max_idx = std::max(target_indexes[i], assignments[i]);
+      std::map<int, std::vector<Eigen::VectorXd>>::iterator outer_trajectory_iter(trajectories.find(min_idx));
+      std::map<int, std::vector<Eigen::VectorXd>>::iterator inner_trajectory_iter(trajectories.find(max_idx));
+      std::map<int, std::vector<int>>::iterator outer_timestamps_iter(timestamps.find(min_idx));
+      std::map<int, std::vector<int>>::iterator inner_timestamps_iter(timestamps.find(max_idx));
 
-    std::map<int, std::vector<Eigen::VectorXf>>::iterator outer_trajectory_iter;
-    std::map<int, std::vector<Eigen::VectorXf>>::iterator inner_trajectory_iter;
-    std::map<int, std::vector<int>>::iterator outer_timestamps_iter;
-    std::map<int, std::vector<int>>::iterator inner_timestamps_iter;
+      std::vector<int> trial;
 
-    std::vector<int> trial;
+      int first_trj_idx = outer_trajectory_iter->first;
+      int second_trj_idx = inner_trajectory_iter->first;
 
-    outer_trajectory_iter = trajectories.find(min_idx);
-    inner_trajectory_iter = trajectories.find(max_idx);
-    outer_timestamps_iter = timestamps.find(min_idx);
-    inner_timestamps_iter = timestamps.find(max_idx);
+      int outer_trj_end_time = timestamps[first_trj_idx][timestamps[first_trj_idx].size() - 1];
+      int inner_trj_begin_time = timestamps[second_trj_idx][0];
+      int outer_trj_begin_time = timestamps[first_trj_idx][0];
+      int inner_trj_end_time = timestamps[second_trj_idx][timestamps[second_trj_idx].size() - 1];
 
-    int first_trj_idx = outer_trajectory_iter->first;
-    int second_trj_idx = inner_trajectory_iter->first;
+      int s = 0; // TODO: whether trajectories intersect; whether trajectories time-lapsed
 
-    int Ti_e = timestamps[first_trj_idx][timestamps[first_trj_idx].size() - 1];
-    int Tj_b = timestamps[second_trj_idx][0];
-    int Ti_b = timestamps[first_trj_idx][0];
-    int Tj_e = timestamps[second_trj_idx][timestamps[second_trj_idx].size() - 1];
-
-    int s = 0; // TODO: whether trajectories intersect; whether trajectories time-lapsed
-
-    if (Ti_e - Tj_b >= 0 && Ti_e - Tj_b <= tau)
-    {
-      s = Ti_e - Tj_b; // trajectories intersect Ti goes BEFORE Tj
-    }
-    if (Tj_e - Ti_b >= 0 && Tj_e - Ti_b <= tau)
-    {
-      s = Tj_e - Ti_b; // trajectories intersect Ti goes AFTER Tj
-      outer_trajectory_iter = trajectories.find(max_idx);
-      inner_trajectory_iter = trajectories.find(min_idx);
-      outer_timestamps_iter = timestamps.find(max_idx);
-      inner_timestamps_iter = timestamps.find(min_idx);
-    }
-    if (Tj_b - Ti_e > 0 && Tj_b - Ti_e <= delta)
-    {
-      s = Tj_b - Ti_e; // trajectories NOT intersect Ti goes BEFORE Tj
-      /// HERE perform continuation of trajectories
-      PerformTrajectoryContinuation(outer_trajectory_iter,
-                                    inner_trajectory_iter,
-                                    outer_timestamps_iter,
-                                    inner_timestamps_iter,
-                                    s);
-    }
-    if (Ti_b - Tj_e > 0 && Tj_e - Ti_b <= delta)
-    {
-      s = Ti_b - Tj_e; // trajectories NOT intersect Ti goes AFTER Tj
-      /// HERE perform continuation of trajectories
-      PerformTrajectoryContinuation(inner_trajectory_iter,
-                                    outer_trajectory_iter,
-                                    inner_timestamps_iter,
-                                    outer_timestamps_iter,
-                                    s);
-    }
-
-    // creating new trajectory by connecting previous two
-    std::vector<Eigen::VectorXf> new_trajectory;
-    std::vector<int> new_timestamp;
-    for (int pre_intersection_time = 0; pre_intersection_time < outer_trajectory_iter->second.size() - 1 - s;
-         ++pre_intersection_time)
-    {
-      new_trajectory.push_back(outer_trajectory_iter->second[pre_intersection_time]);
-      new_timestamp.push_back(outer_timestamps_iter->second[pre_intersection_time]);
-    } // pre_intersection_time
-
-    for (int intersection_time = 0; intersection_time <= s; ++intersection_time)
-    {
-      Eigen::VectorXf new_trajectory_part(kNumOfExtractedFeatures);
-      for (int state_element = 0; state_element < kNumOfExtractedFeatures; ++state_element)
+      if (outer_trj_end_time - inner_trj_begin_time >= 0
+          && outer_trj_end_time - inner_trj_begin_time <= parameter_handler_.GetTrackLinkingIntersectionTime())
       {
-        new_trajectory_part(state_element) =
-            (outer_trajectory_iter->second[outer_trajectory_iter->second.size() - 1 - s + intersection_time](
-                state_element) + inner_trajectory_iter->second[intersection_time](state_element)) / 2;
+        s = outer_trj_end_time - inner_trj_begin_time; // trajectories intersect Ti goes BEFORE Tj
       }
-      new_trajectory.push_back(new_trajectory_part);
-      new_timestamp.push_back(outer_timestamps_iter->second[
-                                  outer_trajectory_iter->second.size() - 1 - s + intersection_time]);
-    } // intersection_time
+      if (inner_trj_end_time - outer_trj_begin_time >= 0
+          && inner_trj_end_time - outer_trj_begin_time <= parameter_handler_.GetTrackLinkingIntersectionTime())
+      {
+        s = inner_trj_end_time - outer_trj_begin_time; // trajectories intersect Ti goes AFTER Tj
+        outer_trajectory_iter = trajectories.find(max_idx);
+        inner_trajectory_iter = trajectories.find(min_idx);
+        outer_timestamps_iter = timestamps.find(max_idx);
+        inner_timestamps_iter = timestamps.find(min_idx);
+      }
+      if (inner_trj_begin_time - outer_trj_end_time > 0
+          && inner_trj_begin_time - outer_trj_end_time <= parameter_handler_.GetTrackLinkingLagTime())
+      {
+        s = inner_trj_begin_time - outer_trj_end_time; // trajectories NOT intersect Ti goes BEFORE Tj
+        /// HERE perform continuation of trajectories
+        PerformTrajectoryContinuation(outer_trajectory_iter,
+                                      inner_trajectory_iter,
+                                      outer_timestamps_iter,
+                                      inner_timestamps_iter,
+                                      s);
+      }
+      if (outer_trj_begin_time - inner_trj_end_time > 0
+          && inner_trj_end_time - outer_trj_begin_time <= parameter_handler_.GetTrackLinkingLagTime())
+      {
+        s = outer_trj_begin_time - inner_trj_end_time; // trajectories NOT intersect Ti goes AFTER Tj
+        /// HERE perform continuation of trajectories
+        PerformTrajectoryContinuation(inner_trajectory_iter,
+                                      outer_trajectory_iter,
+                                      inner_timestamps_iter,
+                                      outer_timestamps_iter,
+                                      s);
+      }
 
-    for (int post_intersection_time = s + 1; post_intersection_time < inner_trajectory_iter->second.size();
-         ++post_intersection_time)
-    {
-      new_trajectory.push_back(inner_trajectory_iter->second[post_intersection_time]);
-      new_timestamp.push_back(inner_timestamps_iter->second[post_intersection_time]);
-    } // post_intersection_time
+      // creating new trajectory by connecting previous two
+      std::vector<Eigen::VectorXd> new_trajectory;
+      std::vector<int> new_timestamp;
+      for (int pre_intersection_time = 0; pre_intersection_time < outer_trajectory_iter->second.size() - 1 - s;
+           ++pre_intersection_time)
+      {
+        new_trajectory.push_back(outer_trajectory_iter->second[pre_intersection_time]);
+        new_timestamp.push_back(outer_timestamps_iter->second[pre_intersection_time]);
+      } // pre_intersection_time
 
-    // removing old unnecessary trajectories from map
-    outer_trajectory_iter = trajectories.find(min_idx);
-    if (outer_trajectory_iter != trajectories.end())
-    {
-      std::cout << "At " << timestamps.find(max_idx)->second[0] << "th second " << "beginning trajectory index = "
-                << outer_trajectory_iter->first;
-      trajectories.erase(outer_trajectory_iter);
-    }
-    outer_trajectory_iter = trajectories.find(max_idx);
-    if (outer_trajectory_iter != trajectories.end())
-    {
-      std::cout << " | | ending trajectory index = " << outer_trajectory_iter->first << "and they are now connected"
-                << std::endl;
-      trajectories.erase(outer_trajectory_iter);
-    }
-    // creating new trajectory in a map
-    trajectories[min_idx] = new_trajectory;
+      for (int intersection_time = 0; intersection_time <= s; ++intersection_time)
+      {
+        Eigen::VectorXd new_trajectory_part(kNumOfExtractedFeatures);
+        for (int state_element = 0; state_element < kNumOfExtractedFeatures; ++state_element)
+        {
+          new_trajectory_part(state_element) =
+              (outer_trajectory_iter->second[outer_trajectory_iter->second.size() - 1 - s + intersection_time](
+                  state_element) + inner_trajectory_iter->second[intersection_time](state_element)) / 2;
+        }
+        new_trajectory.push_back(new_trajectory_part);
+        new_timestamp.push_back(outer_timestamps_iter->second[
+                                    outer_trajectory_iter->second.size() - 1 - s + intersection_time]);
+      } // intersection_time
 
-    // removing old unnecessary timestamps from map
-    outer_timestamps_iter = timestamps.find(min_idx);
-    if (outer_timestamps_iter != timestamps.end())
-    {
-      timestamps.erase(outer_timestamps_iter);
-    }
-    outer_timestamps_iter = timestamps.find(max_idx);
-    if (outer_timestamps_iter != timestamps.end())
-    {
-      timestamps.erase(outer_timestamps_iter);
-    }
-    // creating new timestamp in a map
-    timestamps[min_idx] = new_timestamp;
+      for (int post_intersection_time = s + 1; post_intersection_time < inner_trajectory_iter->second.size();
+           ++post_intersection_time)
+      {
+        new_trajectory.push_back(inner_trajectory_iter->second[post_intersection_time]);
+        new_timestamp.push_back(inner_timestamps_iter->second[post_intersection_time]);
+      } // post_intersection_time
 
-    std::replace(assignments.begin(), assignments.end(), max_idx, min_idx);
-    std::replace(target_indexes.begin(), target_indexes.end(), max_idx, min_idx);
+      // removing old unnecessary trajectories from map
+      outer_trajectory_iter = trajectories.find(min_idx);
+      if (outer_trajectory_iter != trajectories.end())
+      {
+        std::cout << "At " << timestamps.find(max_idx)->second[0] << "th second " << "beginning trajectory index = "
+                  << outer_trajectory_iter->first;
+        trajectories.erase(outer_trajectory_iter);
+      }
+      outer_trajectory_iter = trajectories.find(max_idx);
+      if (outer_trajectory_iter != trajectories.end())
+      {
+        std::cout << " | | ending trajectory index = " << outer_trajectory_iter->first << "and they are now connected"
+                  << std::endl;
+        trajectories.erase(outer_trajectory_iter);
+      }
+      // creating new trajectory in a map
+      trajectories[min_idx] = new_trajectory;
+
+      // removing old unnecessary timestamps from map
+      outer_timestamps_iter = timestamps.find(min_idx);
+      if (outer_timestamps_iter != timestamps.end())
+      {
+        timestamps.erase(outer_timestamps_iter);
+      }
+      outer_timestamps_iter = timestamps.find(max_idx);
+      if (outer_timestamps_iter != timestamps.end())
+      {
+        timestamps.erase(outer_timestamps_iter);
+      }
+      // creating new timestamp in a map
+      timestamps[min_idx] = new_timestamp;
+
+      std::replace(assignments.begin(), assignments.end(), max_idx, min_idx);
+      std::replace(target_indexes.begin(), target_indexes.end(), max_idx, min_idx);
+    }
   } // i
 }
 
-void TrajectoryLinker::DeleteShortTrajectories(std::map<int, std::vector<Eigen::VectorXf>> &trajectories,
+void TrajectoryLinker::DeleteShortTrajectories(std::map<int, std::vector<Eigen::VectorXd>> &trajectories,
                                                std::map<int, std::vector<int>> &timestamps)
 {
   int min_traj_length = 2;
   int counter = 0;
-  for (std::map<int, std::vector<Eigen::VectorXf>>::iterator traj_it = trajectories.begin();
+  for (std::map<int, std::vector<Eigen::VectorXd>>::iterator traj_it = trajectories.begin();
        traj_it != trajectories.end();)
   {
     if (traj_it->second.size() <= min_traj_length)
@@ -511,8 +294,8 @@ void TrajectoryLinker::DeleteShortTrajectories(std::map<int, std::vector<Eigen::
 }
 
 void TrajectoryLinker::PerformTrajectoryContinuation(
-    const std::map<int, std::vector<Eigen::VectorXf>>::iterator &outer_trajectory_iter,
-    const std::map<int, std::vector<Eigen::VectorXf>>::iterator &inner_trajectory_iter,
+    const std::map<int, std::vector<Eigen::VectorXd>>::iterator &outer_trajectory_iter,
+    const std::map<int, std::vector<Eigen::VectorXd>>::iterator &inner_trajectory_iter,
     const std::map<int, std::vector<int>>::iterator &outer_timestamps_iter,
     const std::map<int, std::vector<int>>::iterator &inner_timestamps_iter,
     int s)
@@ -535,7 +318,7 @@ void TrajectoryLinker::PerformTrajectoryContinuation(
       continue;// just skip it
     } else // push other elements
     {
-      Eigen::VectorXf new_outer_point;
+      Eigen::VectorXd new_outer_point;
       continued_trj_x += v_t_x_outer;
       continued_trj_y += v_t_y_outer;
       new_outer_point << continued_trj_x, continued_trj_y, v_t_x_outer, v_t_y_outer,
@@ -560,7 +343,7 @@ void TrajectoryLinker::PerformTrajectoryContinuation(
       continue;// just skip it
     } else // push other elements
     {
-      Eigen::VectorXf new_inner_point;
+      Eigen::VectorXd new_inner_point;
       continued_trj_x -= v_t_x_inner;
       continued_trj_y -= v_t_y_inner;
       new_inner_point << continued_trj_x, continued_trj_y, v_t_x_inner, v_t_y_inner,
@@ -575,10 +358,10 @@ void TrajectoryLinker::PerformTrajectoryContinuation(
   }
 }
 
-void TrajectoryLinker::FillHolesInMaps(std::map<int, std::vector<Eigen::VectorXf>> &trajectories,
+void TrajectoryLinker::FillHolesInMaps(std::map<int, std::vector<Eigen::VectorXd>> &trajectories,
                                        std::map<int, std::vector<int>> &timestamps)
 {
-  std::map<int, std::vector<Eigen::VectorXf>>::iterator traj_it;
+  std::map<int, std::vector<Eigen::VectorXd>>::iterator traj_it;
   for (traj_it = trajectories.begin(); traj_it != trajectories.end(); ++traj_it)
   {
     //auto cur_traj_it = traj_it;
@@ -611,7 +394,7 @@ void TrajectoryLinker::FillHolesInMaps(std::map<int, std::vector<Eigen::VectorXf
 }
 
 void TrajectoryLinker::SaveTrajectories(std::ofstream &file,
-                                        const std::map<int, std::vector<Eigen::VectorXf>> &trajectories,
+                                        const std::map<int, std::vector<Eigen::VectorXd>> &trajectories,
                                         const std::map<int, std::vector<int>> &timestamps)
 {
   // TODO: save time-points and number of targets per time-point
@@ -674,11 +457,11 @@ void TrajectoryLinker::SaveTrajectories(std::ofstream &file,
 }
 
 void TrajectoryLinker::SaveTrajectoriesMatlab(std::ofstream &file,
-                                              const std::map<int, std::vector<Eigen::VectorXf>> &trajectories,
+                                              const std::map<int, std::vector<Eigen::VectorXd>> &trajectories,
                                               const std::map<int, std::vector<int>> &timestamps)
 {
   // TODO: save time-points and number of targets per time-point
-  std::map<int, std::vector<Eigen::VectorXf>>::const_iterator it;
+  std::map<int, std::vector<Eigen::VectorXd>>::const_iterator it;
   std::map<int, std::vector<int>>::const_iterator time = timestamps.begin();
   for (it = trajectories.begin(); it != trajectories.end(); ++it)
   {
@@ -700,42 +483,322 @@ void TrajectoryLinker::SaveTrajectoriesMatlab(std::ofstream &file,
   }
 }
 
-CostInt TrajectoryLinker::InitializeCostMatrixForTrackLinking(std::map<int,
-                                                                       std::vector<Eigen::VectorXf>> &trajectories,
+CostInt TrajectoryLinker::InitializeCostMatrixForTrackLinking(std::map<int, std::vector<Eigen::VectorXd>> &trajectories,
                                                               std::map<int, std::vector<int>> &timestamps,
-                                                              double &max_elem,
                                                               std::vector<std::vector<CostInt>> &cost_matrix,
                                                               std::vector<int> &target_indexes)
 {
-  std::cout << "cost matrix initialization for track linking" << std::endl;
+  std::cout << "track linking | cost matrix initialization" << std::endl;
 
   target_indexes.clear();
 
-  std::map<int, std::vector<Eigen::VectorXf>>::iterator iter_trj_outer;
-  for (iter_trj_outer = trajectories.begin(); iter_trj_outer != trajectories.end(); ++iter_trj_outer)
-  {
-    target_indexes.push_back(iter_trj_outer->first);
-    std::map<int, std::vector<Eigen::VectorXf>>::iterator iter_trj_inner;
-    for (iter_trj_inner = trajectories.begin(); iter_trj_inner != trajectories.end(); ++iter_trj_inner)
-    {
-      int first_trj_idx = iter_trj_outer->first;
-      int second_trj_idx = iter_trj_inner->first;
+  Real cost = 0.0;
+  Real max_cost = 0.0;
 
-      if (cost_matrix[first_trj_idx][second_trj_idx] < 0)
+  for (std::map<int, std::vector<Eigen::VectorXd>>::iterator outer_trj_it = trajectories.begin();
+       outer_trj_it != trajectories.end(); ++outer_trj_it)
+  {
+    target_indexes.push_back(outer_trj_it->first);
+    std::cout << "outer_trajectory #" << outer_trj_it->first << std::endl;
+
+    for (std::map<int, std::vector<Eigen::VectorXd>>::iterator inner_trj_it = trajectories.begin();
+         inner_trj_it != trajectories.end(); ++inner_trj_it)
+    {
+      int outer_trj_idx = outer_trj_it->first;
+      int inner_trj_idx = inner_trj_it->first;
+
+      int outer_trj_begin_time = timestamps[outer_trj_idx][0];
+      int outer_trj_end_time = timestamps[outer_trj_idx][timestamps[outer_trj_idx].size() - 1];
+      int inner_trj_begin_time = timestamps[inner_trj_idx][0];
+      int inner_trj_end_time = timestamps[inner_trj_idx][timestamps[inner_trj_idx].size() - 1];
+
+//      // EXCLUDING trajectories with length < tau + 1
+//      if ((outer_trj_it->second.size() <= tau) || (inner_trj_it->second.size() <= tau))
+//      {
+//        cost_matrix[outer_trj_it->first][inner_trj_it->first] = -1; // TODO: make sure the indexing is correct
+//        continue;
+//      }
+
+      if (inner_trj_it->first == outer_trj_it->first)
       {
-        cost_matrix[first_trj_idx][second_trj_idx] = CostInt(max_elem);
+//        cost_matrix[outer_trj_it->first][inner_trj_it->first] = -1;
+        continue; // TODO: is it required?
       }
-    } // iter_trj_inner
-  } // iter_trj_outer
+
+      // trajectories do not intersect: outer, inner (in time)
+      if ((inner_trj_begin_time - outer_trj_end_time >= 1)
+          && (inner_trj_begin_time - outer_trj_end_time <= parameter_handler_.GetTrackLinkingLagTime()))
+      {
+        if (!IsLinkingNearBoundary(outer_trj_it->second[outer_trj_it->second.size() - 1], inner_trj_it->second[0]))
+        {
+          int s = inner_trj_begin_time - outer_trj_end_time;
+          cost = ComputeCostMatrixEntryWithoutIntersection(outer_trj_it, inner_trj_it, s);
+          if (max_cost < cost)
+          {
+            max_cost = cost;
+          }
+          cost_matrix[outer_trj_idx][inner_trj_idx] = CostInt(cost * costs_order_of_magnitude_);
+          continue;
+        }
+//        if (!CheckDistance(outer_trj_it, inner_trj_it))
+//        {
+//          cost_matrix[outer_trj_it->first][inner_trj_it->first] = -1;
+//          continue;
+//        }
+      }
+
+      // trajectories do not intersect: inner, outer (in time)
+      if ((outer_trj_begin_time - inner_trj_end_time >= 1)
+          && (outer_trj_begin_time - inner_trj_end_time <= parameter_handler_.GetTrackLinkingLagTime()))
+      {
+        if (!IsLinkingNearBoundary(outer_trj_it->second[0], inner_trj_it->second[inner_trj_it->second.size() - 1]))
+        {
+          int s = outer_trj_begin_time - inner_trj_end_time;
+          cost = ComputeCostMatrixEntryWithoutIntersection(inner_trj_it, outer_trj_it, s);
+          if (max_cost < cost)
+          {
+            max_cost = cost;
+          }
+          cost_matrix[outer_trj_idx][inner_trj_idx] = CostInt(cost * costs_order_of_magnitude_);
+          continue;
+        }
+//        if (!CheckDistance(inner_trj_it, outer_trj_it))
+//        {
+//          cost_matrix[outer_trj_it->first][inner_trj_it->first] = -1;
+//          continue;
+//        }
+      }
+
+      // trajectories intersect: outer, inner (in time)
+      if ((outer_trj_end_time - inner_trj_begin_time >= 0)
+          && (outer_trj_end_time - inner_trj_begin_time <= parameter_handler_.GetTrackLinkingIntersectionTime()))
+      {
+        if (!IsLinkingNearBoundary(outer_trj_it->second[outer_trj_it->second.size() - 1], inner_trj_it->second[0]))
+        {
+          cost = ComputeCostMatrixEntryWithIntersection(outer_trj_it,
+                                                        inner_trj_it,
+                                                        outer_trj_end_time,
+                                                        inner_trj_begin_time);
+          if (max_cost < cost)
+          {
+            max_cost = cost;
+          }
+          cost_matrix[outer_trj_idx][inner_trj_idx] = CostInt(cost * costs_order_of_magnitude_);
+          continue;
+        }
+//        if (!CheckDistance(outer_trj_it, inner_trj_it))
+//        {
+//          cost_matrix[outer_trj_it->first][inner_trj_it->first] = -1;
+//          continue;
+//        }
+      }
+
+      // trajectories intersect: inner, outer (in time)
+      if ((inner_trj_end_time - outer_trj_begin_time >= 0)
+          && (inner_trj_end_time - outer_trj_begin_time <= parameter_handler_.GetTrackLinkingIntersectionTime()))
+      {
+        if (!IsLinkingNearBoundary(outer_trj_it->second[0], inner_trj_it->second[inner_trj_it->second.size() - 1]))
+        {
+          cost = ComputeCostMatrixEntryWithIntersection(inner_trj_it,
+                                                        outer_trj_it,
+                                                        inner_trj_end_time,
+                                                        outer_trj_begin_time);
+          if (max_cost < cost)
+          {
+            max_cost = cost;
+          }
+          cost_matrix[outer_trj_idx][inner_trj_idx] = CostInt(cost * costs_order_of_magnitude_);
+          continue;
+        }
+//        if (!CheckDistance(inner_trj_it, outer_trj_it))
+//        {
+//          cost_matrix[outer_trj_it->first][inner_trj_it->first] = -1;
+//          continue;
+//        }
+      }
+    } // inner_trj_it
+  } // outer_trj_it
 
   // turn min cost problem into max cost problem
   for (int i = 0; i < cost_matrix.size(); ++i)
   {
     for (int j = 0; j < cost_matrix.size(); ++j)
     {
-      cost_matrix[i][j] = CostInt(max_elem) - cost_matrix[i][j];
+      // the complementary values (initialized as -1) are put to zero as needed for the max cost problem
+      if (cost_matrix[i][j] < 0)
+      {
+        cost_matrix[i][j] = 0;
+      } else
+      {
+        cost_matrix[i][j] = CostInt(max_cost * costs_order_of_magnitude_) - cost_matrix[i][j];
+      }
     }
   }
 
-  return CostInt(max_elem);
+  return CostInt(max_cost * costs_order_of_magnitude_);
+}
+
+///**
+// * outer, inner (in time)
+// * @param outer_trj_it
+// * @param inner_trj_it
+// * @return
+// */
+//bool TrajectoryLinker::CheckDistance(const std::map<int,
+//                                                    std::vector<Eigen::VectorXd>>::iterator &outer_trj_it,
+//                                     const std::map<int,
+//                                                    std::vector<Eigen::VectorXd>>::iterator &inner_trj_it)
+//{
+////  int sigma = 25;
+//  if (((outer_trj_it->second[outer_trj_it->second.size() - 1](0)) < sigma)
+//      && ((inner_trj_it->second[0](0)) < sigma))
+//  {
+//    return false;
+//  }
+//  if (((outer_trj_it->second[outer_trj_it->second.size() - 1](1)) < sigma)
+//      && ((inner_trj_it->second[0](1)) < sigma))
+//  {
+//    return false;
+//  }
+//  if ((parameter_handler_.GetSubimageXSize() - (outer_trj_it->second[outer_trj_it->second.size() - 1](0)) < sigma)
+//      && (parameter_handler_.GetSubimageXSize() - (inner_trj_it->second[0](0)) < sigma))
+//  {
+//    return false;
+//  }
+//  if ((parameter_handler_.GetSubimageYSize() - (outer_trj_it->second[outer_trj_it->second.size() - 1](1)) < sigma)
+//      && (parameter_handler_.GetSubimageYSize() - (inner_trj_it->second[0](1)) < sigma))
+//  {
+//    return false;
+//  }
+//  return true;
+//}
+
+bool TrajectoryLinker::IsLinkingNearBoundary(const Eigen::VectorXd &outer_trajectory_point,
+                                             const Eigen::VectorXd &inner_trajectory_point)
+{
+  if ((outer_trajectory_point(0) < parameter_handler_.GetTrackLinkingRoiMargin())
+      && (inner_trajectory_point(0) < parameter_handler_.GetTrackLinkingRoiMargin()))
+  {
+    return true;
+  } else if ((outer_trajectory_point(1) < parameter_handler_.GetTrackLinkingRoiMargin())
+      && (inner_trajectory_point(1) < parameter_handler_.GetTrackLinkingRoiMargin()))
+  {
+    return true;
+  } else if ((outer_trajectory_point(0)
+      > parameter_handler_.GetSubimageXSize() - parameter_handler_.GetTrackLinkingRoiMargin())
+      && (inner_trajectory_point(0)
+          > parameter_handler_.GetSubimageXSize() - parameter_handler_.GetTrackLinkingRoiMargin()))
+  {
+    return true;
+  } else if ((outer_trajectory_point(1)
+      > parameter_handler_.GetSubimageYSize() - parameter_handler_.GetTrackLinkingRoiMargin())
+      && (inner_trajectory_point(1)
+          > parameter_handler_.GetSubimageYSize() - parameter_handler_.GetTrackLinkingRoiMargin()))
+  {
+    return true;
+  } else
+  {
+    return false;
+  }
+}
+
+/**
+ * outer, inner (in time)
+ * @param outer_trj_it
+ * @param inner_trj_it
+ * @param s
+ * @return
+ */
+Real TrajectoryLinker::ComputeCostMatrixEntryWithoutIntersection(
+    const std::map<int, std::vector<Eigen::VectorXd>>::iterator &outer_trj_it,
+    const std::map<int, std::vector<Eigen::VectorXd>>::iterator &inner_trj_it,
+    int s)
+{
+//  Real v_t_x_outer = iter_trj_outer->second[iter_trj_outer->second.size() - 1](0)
+//      - iter_trj_outer->second[iter_trj_outer->second.size() - 2](0);
+//  Real v_t_y_outer = iter_trj_outer->second[iter_trj_outer->second.size() - 1](1)
+//      - iter_trj_outer->second[iter_trj_outer->second.size() - 2](1);
+//  Real v_t_x_inner = iter_trj_inner->second[1](0) - (iter_trj_inner->second[0](0));
+//  Real v_t_y_inner = iter_trj_inner->second[1](1) - (iter_trj_inner->second[0](1));
+  Eigen::VectorXd outer_target_at_last_time = outer_trj_it->second[outer_trj_it->second.size() - 1];
+  Eigen::VectorXd inner_target_at_first_time = inner_trj_it->second[inner_trj_it->second.size() - 1];
+
+//  std::vector<std::vector<Real>> outer_vect;
+//  std::vector<std::vector<Real>> inner_vect;
+  // continuation of outer trajectory
+//  Real continued_trj_x = iter_trj_outer->second[iter_trj_outer->second.size() - 1](0);
+//  Real continued_trj_y = iter_trj_outer->second[iter_trj_outer->second.size() - 1](1);
+  std::vector<Eigen::VectorXd> augmented_outer_trajectory;
+  Eigen::VectorXd augmented_outer_position = outer_target_at_last_time;
+  augmented_outer_trajectory.push_back(augmented_outer_position);
+  for (int continuation_time = 1; continuation_time <= s; ++continuation_time)
+  {
+//    continued_trj_x += v_t_x_outer;
+//    continued_trj_y += v_t_y_outer;
+    augmented_outer_position.head(2) += outer_target_at_last_time.segment(2, 2);
+
+//    std::vector<Real> continued_trj{continued_trj_x, continued_trj_y};
+//    outer_vect.push_back(continued_trj);
+    augmented_outer_trajectory.push_back(augmented_outer_position);
+  }
+
+  // building beginning of inner trajectory
+//  continued_trj_x = iter_trj_inner->second[0](0);
+//  continued_trj_y = iter_trj_inner->second[0](1);
+  std::vector<Eigen::VectorXd> augmented_inner_trajectory;
+  Eigen::VectorXd augmented_inner_position = inner_target_at_first_time;
+  augmented_inner_trajectory.push_back(augmented_inner_position);
+  for (int continuation_time = 1; continuation_time <= s; ++continuation_time)
+  {
+//    continued_trj_x -= v_t_x_inner;
+//    continued_trj_y -= v_t_y_inner;
+    augmented_inner_position.head(2) += inner_target_at_first_time.segment(2, 2);
+
+//    std::vector<Real> continued_trj{continued_trj_x, continued_trj_y};
+//    inner_vect.push_back(continued_trj);
+    augmented_inner_trajectory.push_back(augmented_inner_position);
+  }
+//  std::reverse(inner_vect.begin(), inner_vect.end());
+  std::reverse(augmented_inner_trajectory.begin(), augmented_inner_trajectory.end());
+
+  Real cost = 0;
+  for (int continuation_time = 0; continuation_time <= s; ++continuation_time)
+  {
+//    cost += std::sqrt(std::pow((outer_vect[continuation_time][0] - inner_vect[continuation_time][0]), 2) +
+//        std::pow((outer_vect[continuation_time][1] - inner_vect[continuation_time][1]), 2));
+    cost += (augmented_outer_trajectory[continuation_time].head(2)
+        - augmented_inner_trajectory[continuation_time].head(2)).norm();
+  }
+  return cost / (s + 1);// * costs_order_of_magnitude_;
+}
+
+/**
+ * outer, inner (in time)
+ * @param outer_trj_it
+ * @param inner_trj_it
+ * @param outer_trj_end_time
+ * @param inner_trj_begin_time
+ * @return
+ */
+Real TrajectoryLinker::ComputeCostMatrixEntryWithIntersection(
+    const std::map<int, std::vector<Eigen::VectorXd>>::iterator &outer_trj_it,
+    const std::map<int, std::vector<Eigen::VectorXd>>::iterator &inner_trj_it,
+    int outer_trj_end_time,
+    int inner_trj_begin_time)
+{
+  Real cost = 0;
+  int s = outer_trj_end_time - inner_trj_begin_time;
+
+  for (int intersection_time = 0; intersection_time <= s; ++intersection_time)
+  {
+//    cost +=
+//        std::sqrt(std::pow((outer_trj_it->second[outer_trj_it->second.size() - 1 - s + intersection_time](0)
+//            - inner_trj_it->second[intersection_time](0)), 2) +
+//            std::pow((outer_trj_it->second[outer_trj_it->second.size() - 1 - s + intersection_time](1)
+//                - inner_trj_it->second[intersection_time](1)), 2));
+    Eigen::VectorXd outer_target = outer_trj_it->second[outer_trj_it->second.size() - 1 - s + intersection_time];
+    Eigen::VectorXd inner_target = inner_trj_it->second[intersection_time];
+    cost += (outer_target.head(2) - inner_target.head(2)).norm();
+  }
+  return cost / (s + 1);// * costs_order_of_magnitude_;
 }

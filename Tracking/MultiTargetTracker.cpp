@@ -38,7 +38,6 @@ void MultitargetTracker::StartOnExperimentalData()
 
   image_processing_engine.RetrieveBacterialData(parameter_handler.GetFirstImage(), detections_);
   kalman_filter.InitializeTargets(targets_, detections_);
-
   for (int i = parameter_handler.GetFirstImage() + 1; i <= parameter_handler.GetLastImage(); ++i)
   {
 //    std::chrono::time_point<std::chrono::system_clock> timer = std::chrono::system_clock::now();
@@ -47,6 +46,10 @@ void MultitargetTracker::StartOnExperimentalData()
 //    std::chrono::duration<Real> elapsed_seconds = std::chrono::system_clock::now() - timer;
 //    std::cout << elapsed_seconds.count() << "s" << std::endl;
   }
+
+  TrajectoryLinker trajectory_linker(parameter_handler, image_processing_engine);
+  trajectory_linker.CreateNewTrackLinkingOutputFiles(parameter_handler);
+
 }
 
 void MultitargetTracker::PerformImageProcessingForOneExperiment(const std::string &configuration_file_name)
