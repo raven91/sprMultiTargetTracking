@@ -83,17 +83,16 @@ class KalmanFilterExperimental
                      const std::vector<int> &assignments);
   void DeleteLongLostTargets(std::map<int, Eigen::VectorXf> &targets);
   void CorrectForOrientationUniqueness(std::map<int, Eigen::VectorXf> &targets);
+  CostInt InitializeCostMatrix(const std::map<int, Eigen::VectorXf> &targets,
+                               const std::vector<Eigen::VectorXf> &detections,
+                               std::vector<std::vector<CostInt>> &cost_matrix,
+                               std::vector<int> &target_indexes);
 
   void SaveTargets(std::ofstream &file, int image_idx, const std::map<int, Eigen::VectorXf> &targets);
   void SaveTargetsMatlab(std::ofstream &file, int image_idx, const std::map<int, Eigen::VectorXf> &targets);
   void SaveImagesWithVectors(int image_idx, const std::map<int, Eigen::VectorXf> &targets);
   void SaveImagesWithRectangles(int image_idx, const std::map<int, Eigen::VectorXf> &targets);
   cv::Point2f RotatePoint(const cv::Point2f &p, float rad);
-
-  CostInt InitializeCostMatrix(const std::map<int, Eigen::VectorXf> &targets,
-                               const std::vector<Eigen::VectorXf> &detections,
-                               std::vector<std::vector<CostInt>> &cost_matrix,
-                               std::vector<int> &target_indexes);
 
 };
 

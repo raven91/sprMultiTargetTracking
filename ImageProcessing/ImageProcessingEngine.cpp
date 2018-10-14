@@ -75,7 +75,7 @@ void ImageProcessingEngine::RetrieveSourceImage(int image)
                  << std::setw(9) << image << parameter_handler_.GetFileName1();
   std::string image_name = image_name_buf.str();
 
-  source_image_ = cv::imread(image_name, CV_LOAD_IMAGE_COLOR);
+  source_image_ = cv::imread(image_name, cv::IMREAD_COLOR);
   assert(source_image_.data != NULL);
   source_image_ = cv::Mat(source_image_,
                           cv::Rect(parameter_handler_.GetSubimageXPos(),
@@ -258,6 +258,14 @@ void ImageProcessingEngine::FindContours(const cv::Mat &I)
 //                                           < -parameter_handler_.GetCenterOfMassDistance());
                                  }),
                   contours_.end());
+  // possible solution for
+  // https://github.com/opencv/opencv/issues/6155
+//  for (int i = 0; i < contours_.size(); ++i)
+//  {
+//    std::vector<cv::Point> copy(contours_[i]);
+//    cv::approxPolyDP(contours_[i], copy, 2, true);
+//    contours_[i] = copy;
+//  }
 }
 
 void ImageProcessingEngine::FindImprovedContours(const cv::Mat &I)
@@ -303,6 +311,14 @@ void ImageProcessingEngine::FindImprovedContours(const cv::Mat &I)
 //                                           < -parameter_handler_.GetCenterOfMassDistance());
                                  }),
                   contours_.end());
+  // possible solution for
+  // https://github.com/opencv/opencv/issues/6155
+//  for (int i = 0; i < contours_.size(); ++i)
+//  {
+//    std::vector<cv::Point> copy(contours_[i]);
+//    cv::approxPolyDP(contours_[i], copy, 2, true);
+//    contours_[i] = copy;
+//  }
 }
 
 void ImageProcessingEngine::DrawContours()
@@ -478,7 +494,7 @@ void ImageProcessingEngine::AnalyzeConvexityDefectsOnePass(const cv::Mat &I, cv:
           double max_fixpt_depth = (*cd_it)[3] / 256.0;
           if (max_fixpt_depth > parameter_handler_.GetConvexityDefectMagnitude())
           {
-            PerformConvexityDefectCorrection(cd_it, contour, O);
+            CorrectConvexityDefect(cd_it, contour, O);
           }
         } // cd_it
       }
@@ -533,14 +549,12 @@ std::vector<std::vector<cv::Point>> ImageProcessingEngine::AnalyzeConvexityDefec
       if (max_fixpt_depth < parameter_handler_.GetConvexityDefectMagnitude())
       {
         // end of recursion
-        std::vector<std::vector<cv::Point>> contour_wrapping;
-        contour_wrapping.push_back(contour);
+        std::vector<std::vector<cv::Point>> contour_wrapping{contour};
         return contour_wrapping;
       } else
       {
         cv::Mat subcontour_image = cv::Mat::zeros(bounding_rect.height, bounding_rect.width, CV_8UC1);
-        std::vector<std::vector<cv::Point>> contours_to_draw;
-        contours_to_draw.push_back(contour);
+        std::vector<std::vector<cv::Point>> contours_to_draw{contour};
         cv::drawContours(subcontour_image,
                          contours_to_draw,
                          0,
@@ -550,7 +564,13 @@ std::vector<std::vector<cv::Point>> ImageProcessingEngine::AnalyzeConvexityDefec
                          cv::noArray(),
                          0,
                          cv::Point(0, 0));
-        PerformConvexityDefectCorrection(max_iter, contour, subcontour_image);
+        bool successful_correction = CorrectConvexityDefect(max_iter, contour, subcontour_image);
+        if (!successful_correction)
+        {
+          // end of recursion
+          std::vector<std::vector<cv::Point>> contour_wrapping{contour};
+          return contour_wrapping;
+        }
         const int max_binary_threshold_value = 255;
         cv::threshold(subcontour_image, subcontour_image, 254, max_binary_threshold_value, 0);
 
@@ -569,12 +589,13 @@ std::vector<std::vector<cv::Point>> ImageProcessingEngine::AnalyzeConvexityDefec
       }
     } else
     {
-      std::vector<std::vector<cv::Point>> contour_wrapping;
-      contour_wrapping.push_back(contour);
+      // end of recursion
+      std::vector<std::vector<cv::Point>> contour_wrapping{contour};
       return contour_wrapping;
     }
   } else
   {
+    // end of recursion
     return std::vector<std::vector<cv::Point>>();
   }
 }
@@ -610,9 +631,9 @@ void ImageProcessingEngine::FindSubcontours(const cv::Mat &subcontour_image,
                         new_subcontours.end());
 }
 
-void ImageProcessingEngine::PerformConvexityDefectCorrection(const std::vector<cv::Vec4i>::iterator &cd_it,
-                                                             const std::vector<cv::Point> &contour,
-                                                             cv::Mat &image)
+bool ImageProcessingEngine::CorrectConvexityDefect(const std::vector<cv::Vec4i>::iterator &cd_it,
+                                                   const std::vector<cv::Point> &contour,
+                                                   cv::Mat &image)
 {
   const cv::Point2f &start_point = contour[(*cd_it)[0]];
   const cv::Point2f &end_point = contour[(*cd_it)[1]];
@@ -623,6 +644,19 @@ void ImageProcessingEngine::PerformConvexityDefectCorrection(const std::vector<c
   double inward_cutting_vec_norm =
       std::sqrt(inward_cutting_vec.x * inward_cutting_vec.x + inward_cutting_vec.y * inward_cutting_vec.y);
   inward_cutting_vec /= inward_cutting_vec_norm;
+
+  // if the convexity defect occurs to be wrong, skip it
+  // https://github.com/opencv/opencv/issues/6155
+  if (cv::pointPolygonTest(contour,
+                           middle_point + inward_cutting_vec * (inward_cutting_vec_norm - 1.0),
+                           false) > 0.0
+      && cv::pointPolygonTest(contour,
+                              middle_point + inward_cutting_vec * (inward_cutting_vec_norm + 1.0),
+                              false) < 0.0)
+  {
+    return false;
+  }
+
   double intersection_length = 0.0;
   do
   {
@@ -639,6 +673,10 @@ void ImageProcessingEngine::PerformConvexityDefectCorrection(const std::vector<c
              cv::Scalar(0, 0, 0),
              2,
              cv::LINE_AA);
+    return true;
+  } else
+  {
+    return false;
   }
 }
 
@@ -659,7 +697,7 @@ void ImageProcessingEngine::ComposeImageForFilterOutput(int image_idx, cv::Mat &
   IncreaseContrast(source_image_, gray_image_);
   cv::bitwise_not(gray_image_, gray_image_);
   cv::equalizeHist(gray_image_, gray_image_);
-  cv::cvtColor(gray_image_, image, CV_GRAY2BGR);
+  cv::cvtColor(gray_image_, image, cv::COLOR_GRAY2BGR);
 }
 
 const std::vector<cv::Point> &ImageProcessingEngine::GetContour(int idx)

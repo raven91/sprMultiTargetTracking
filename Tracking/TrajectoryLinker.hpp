@@ -29,19 +29,6 @@ class TrajectoryLinker
                               std::ifstream &file);
   void PerformTrackLinking(std::map<int, std::vector<Eigen::VectorXf>> &trajectories,
                            std::map<int, std::vector<int>> &timestamps);
-  bool CheckDistance(const std::map<int, std::vector<Eigen::VectorXf>>::iterator &iter_trj_outer,
-                     const std::map<int, std::vector<Eigen::VectorXf>>::iterator &iter_trj_inner);
-  CostInt CountCostMatrixElementNOIntersection(const std::map<int,
-                                                              std::vector<Eigen::VectorXf>>::iterator &iter_trj_outer,
-                                               const std::map<int,
-                                                              std::vector<Eigen::VectorXf>>::iterator &iter_trj_inner,
-                                               int s);
-  CostInt CountCostMatrixElementIntersection(const std::map<int,
-                                                            std::vector<Eigen::VectorXf>>::iterator &iter_trj_outer,
-                                             const std::map<int,
-                                                            std::vector<Eigen::VectorXf>>::iterator &iter_trj_inner,
-                                             int Ti_e,
-                                             int Tj_b);
 
  private:
 
@@ -87,6 +74,19 @@ class TrajectoryLinker
                                               double &max_elem,
                                               std::vector<std::vector<CostInt>> &cost_matrix,
                                               std::vector<int> &target_indexes);
+  bool CheckDistance(const std::map<int, std::vector<Eigen::VectorXf>>::iterator &iter_trj_outer,
+                     const std::map<int, std::vector<Eigen::VectorXf>>::iterator &iter_trj_inner);
+  CostInt CountCostMatrixElementNOIntersection(const std::map<int,
+                                                              std::vector<Eigen::VectorXf>>::iterator &iter_trj_outer,
+                                               const std::map<int,
+                                                              std::vector<Eigen::VectorXf>>::iterator &iter_trj_inner,
+                                               int s);
+  CostInt CountCostMatrixElementIntersection(const std::map<int,
+                                                            std::vector<Eigen::VectorXf>>::iterator &iter_trj_outer,
+                                             const std::map<int,
+                                                            std::vector<Eigen::VectorXf>>::iterator &iter_trj_inner,
+                                             int Ti_e,
+                                             int Tj_b);
 
 };
 

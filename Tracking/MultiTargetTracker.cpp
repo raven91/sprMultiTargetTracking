@@ -96,8 +96,8 @@ void MultitargetTracker::StartTrackLinkingViaTemporalAssignment(const std::strin
   ImageProcessingEngine image_processing_engine(parameter_handler);
   KalmanFilterExperimental kalman_filter(parameter_handler, image_processing_engine);
   TrajectoryLinker trajectory_linker(parameter_handler, image_processing_engine);
-  trajectory_linker.InitializeTrajectories(trajectories_, timestamps_, filtered_trajectories_file);
   trajectory_linker.CreateNewTrackLinkingOutputFiles(parameter_handler);
+  trajectory_linker.InitializeTrajectories(trajectories_, timestamps_, filtered_trajectories_file);
   trajectory_linker.PerformTrackLinking(trajectories_, timestamps_);
 }
 

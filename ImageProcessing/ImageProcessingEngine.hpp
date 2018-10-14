@@ -73,9 +73,9 @@ class ImageProcessingEngine
   std::vector<std::vector<cv::Point>> AnalyzeConvexityDefectsRecursively(const std::vector<cv::Point> &contour,
                                                                          const cv::Rect &bounding_rect,
                                                                          int recursion_counter);
-  void PerformConvexityDefectCorrection(const std::vector<cv::Vec4i>::iterator &cd_it,
-                               const std::vector<cv::Point> &contour,
-                               cv::Mat &image);
+  bool CorrectConvexityDefect(const std::vector<cv::Vec4i>::iterator &cd_it,
+                              const std::vector<cv::Point> &contour,
+                              cv::Mat &image);
   void FindSubcontours(const cv::Mat &subcontour_image, std::vector<std::vector<cv::Point>> &new_subcontours);
   void StandardizeImage(cv::Mat &image);
 
