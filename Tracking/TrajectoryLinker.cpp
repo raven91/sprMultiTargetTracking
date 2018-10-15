@@ -71,6 +71,10 @@ void TrajectoryLinker::InitializeTrajectories(std::map<int, std::vector<Eigen::V
 
   while (kalman_filter_output_file >> time_idx >> number_of_targets)
   {
+    if (time_idx > parameter_handler_.GetLastImage())
+    {
+      break;
+    }
     for (int b = 0; b < number_of_targets; ++b)
     {
       kalman_filter_output_file >> target_idx
@@ -93,6 +97,8 @@ void TrajectoryLinker::PerformTrackLinking(std::map<int, std::vector<Eigen::Vect
 {
   std::cout << "trajectory linking" << std::endl;
 
+  DeleteShortTrajectories(trajectories, timestamps);
+
   int n_max_dim = (int) trajectories.size();
   std::vector<int> target_indexes;
   std::vector<int> assignments(n_max_dim, -1);
@@ -106,8 +112,7 @@ void TrajectoryLinker::PerformTrackLinking(std::map<int, std::vector<Eigen::Vect
                                         costs);
   UnassignUnrealisticAssociations(assignments, costs);
   ConnectBrokenTrajectories(trajectories, timestamps, target_indexes, assignments, costs);
-  DeleteShortTrajectories(trajectories, timestamps);
-  ImposeSuccessiveLabeling(trajectories, timestamps);
+//  ImposeSuccessiveLabeling(trajectories, timestamps);
 
   SaveTrajectories(track_linking_output_file_, trajectories, timestamps);
   SaveTrajectoriesMatlab(track_linking_matlab_output_file_, trajectories, timestamps);
@@ -123,12 +128,13 @@ void TrajectoryLinker::PerformDataAssociationForTrackLinking(std::map<int,
                                                              std::vector<CostInt> &costs)
 {
   std::cout << "track linking | data association" << std::endl;
-
   std::vector<std::vector<CostInt>> cost_matrix(n_max_dim, std::vector<CostInt>(n_max_dim, -1));
   CostInt max_cost = InitializeCostMatrixForTrackLinking(trajectories,
                                                          timestamps,
                                                          cost_matrix,
                                                          target_indexes);
+
+  std::cout << "track linking | hungarian algorithm" << std::endl;
   HungarianAlgorithm hungarian_algorithm(n_max_dim, cost_matrix);
   hungarian_algorithm.Start(assignments, costs);
   std::for_each(costs.begin(),
@@ -151,21 +157,25 @@ CostInt TrajectoryLinker::InitializeCostMatrixForTrackLinking(std::map<int, std:
   Real cost = 0.0;
   Real max_cost = 0.0;
 
+  // the trajectories are not guaranteed to have successive labels
+  // row and column indexes are introduced to account for that
+  int row = 0;
   for (std::map<int, std::vector<Eigen::VectorXd>>::iterator outer_trj_it = trajectories.begin();
-       outer_trj_it != trajectories.end(); ++outer_trj_it)
+       outer_trj_it != trajectories.end(); ++outer_trj_it, ++row)
   {
     target_indexes.push_back(outer_trj_it->first);
 
+    int column = 0;
     for (std::map<int, std::vector<Eigen::VectorXd>>::iterator inner_trj_it = trajectories.begin();
-         inner_trj_it != trajectories.end(); ++inner_trj_it)
+         inner_trj_it != trajectories.end(); ++inner_trj_it, ++column)
     {
       int outer_trj_idx = outer_trj_it->first;
       int inner_trj_idx = inner_trj_it->first;
 
-      int outer_trj_begin_time = timestamps[outer_trj_idx][0];
+//      int outer_trj_begin_time = timestamps[outer_trj_idx][0];
       int outer_trj_end_time = timestamps[outer_trj_idx][timestamps[outer_trj_idx].size() - 1];
       int inner_trj_begin_time = timestamps[inner_trj_idx][0];
-      int inner_trj_end_time = timestamps[inner_trj_idx][timestamps[inner_trj_idx].size() - 1];
+//      int inner_trj_end_time = timestamps[inner_trj_idx][timestamps[inner_trj_idx].size() - 1];
 
       if (inner_trj_it->first == outer_trj_it->first)
       {
@@ -184,8 +194,8 @@ CostInt TrajectoryLinker::InitializeCostMatrixForTrackLinking(std::map<int, std:
           {
             max_cost = cost;
           }
-          cost_matrix[outer_trj_idx][inner_trj_idx] = CostInt(cost * costs_order_of_magnitude_);
-          continue;
+          cost_matrix[row][column] = CostInt(cost * costs_order_of_magnitude_);
+//          continue;
         }
       }
 
@@ -201,7 +211,7 @@ CostInt TrajectoryLinker::InitializeCostMatrixForTrackLinking(std::map<int, std:
           {
             max_cost = cost;
           }
-          cost_matrix[outer_trj_idx][inner_trj_idx] = CostInt(cost * costs_order_of_magnitude_);
+          cost_matrix[row][column] = CostInt(cost * costs_order_of_magnitude_);
           continue;
         }
       }
@@ -221,8 +231,8 @@ CostInt TrajectoryLinker::InitializeCostMatrixForTrackLinking(std::map<int, std:
           {
             max_cost = cost;
           }
-          cost_matrix[outer_trj_idx][inner_trj_idx] = CostInt(cost * costs_order_of_magnitude_);
-          continue;
+          cost_matrix[row][column] = CostInt(cost * costs_order_of_magnitude_);
+//          continue;
         }
       }
 
@@ -240,7 +250,7 @@ CostInt TrajectoryLinker::InitializeCostMatrixForTrackLinking(std::map<int, std:
           {
             max_cost = cost;
           }
-          cost_matrix[outer_trj_idx][inner_trj_idx] = CostInt(cost * costs_order_of_magnitude_);
+          cost_matrix[row][column] = CostInt(cost * costs_order_of_magnitude_);
           continue;
         }
       }
@@ -249,20 +259,20 @@ CostInt TrajectoryLinker::InitializeCostMatrixForTrackLinking(std::map<int, std:
   } // outer_trj_it
 
   // turn min cost problem into max cost problem
-  for (int i = 0; i < cost_matrix.size(); ++i)
+  for (int row = 0; row < cost_matrix.size(); ++row)
   {
-    for (int j = 0; j < cost_matrix.size(); ++j)
+    for (int column = 0; column < cost_matrix.size(); ++column)
     {
       // the complementary values (initialized as -1) are put to zero as needed for the max cost problem
-      if (cost_matrix[i][j] < 0)
+      if (cost_matrix[row][column] < 0)
       {
-        cost_matrix[i][j] = 0;
+        cost_matrix[row][column] = 0;
       } else
       {
-        cost_matrix[i][j] = CostInt(max_cost * costs_order_of_magnitude_) - cost_matrix[i][j];
+        cost_matrix[row][column] = CostInt(max_cost * costs_order_of_magnitude_) - cost_matrix[row][column];
       }
-    }
-  }
+    } // column
+  } // row
 
   return CostInt(max_cost * costs_order_of_magnitude_);
 }
@@ -382,17 +392,18 @@ void TrajectoryLinker::ConnectBrokenTrajectories(std::map<int, std::vector<Eigen
 {
   std::cout << "track linking | unification of tracklings" << std::endl;
 
+  int number_of_unifications = 0;
   for (int i = 0; i < assignments.size(); ++i)
   {
     if (assignments[i] != -1)
     {
       int target_idx = target_indexes[i];
-      int assignment_idx = assignments[i];
+      int assignment_idx = target_indexes[assignments[i]];
 
-      int target_begin_time = timestamps[target_idx][0];
+//      int target_begin_time = timestamps[target_idx][0];
       int target_end_time = timestamps[target_idx][timestamps[target_idx].size() - 1];
       int assignment_begin_time = timestamps[assignment_idx][0];
-      int assignment_end_time = timestamps[assignment_idx][timestamps[assignment_idx].size() - 1];
+//      int assignment_end_time = timestamps[assignment_idx][timestamps[assignment_idx].size() - 1];
 
       std::vector<Eigen::VectorXd> unified_trajectory;
       std::vector<int> unified_timestamp;
@@ -409,7 +420,7 @@ void TrajectoryLinker::ConnectBrokenTrajectories(std::map<int, std::vector<Eigen
                                          unified_trajectory,
                                          unified_timestamp);
       }
-      // trajectories do not intersect: assignment, target (in time)
+/*      // trajectories do not intersect: assignment, target (in time)
       if ((target_begin_time - assignment_end_time >= 1)
           && (target_begin_time - assignment_end_time <= parameter_handler_.GetTrackLinkingLagTime()))
       {
@@ -422,6 +433,7 @@ void TrajectoryLinker::ConnectBrokenTrajectories(std::map<int, std::vector<Eigen
                                          unified_trajectory,
                                          unified_timestamp);
       }
+      */
       // trajectories intersect: target, assignment (in time)
       if ((target_end_time - assignment_begin_time >= 0)
           && (target_end_time - assignment_begin_time <= parameter_handler_.GetTrackLinkingIntersectionTime()))
@@ -435,7 +447,7 @@ void TrajectoryLinker::ConnectBrokenTrajectories(std::map<int, std::vector<Eigen
                                       unified_trajectory,
                                       unified_timestamp);
       }
-      // trajectories intersect: assignment, target (in time)
+/*      // trajectories intersect: assignment, target (in time)
       if ((assignment_end_time - target_begin_time >= 0)
           && (assignment_end_time - target_begin_time <= parameter_handler_.GetTrackLinkingIntersectionTime()))
       {
@@ -448,6 +460,7 @@ void TrajectoryLinker::ConnectBrokenTrajectories(std::map<int, std::vector<Eigen
                                       unified_trajectory,
                                       unified_timestamp);
       }
+      */
 
       trajectories.erase(target_idx);
       trajectories.erase(assignment_idx);
@@ -457,8 +470,13 @@ void TrajectoryLinker::ConnectBrokenTrajectories(std::map<int, std::vector<Eigen
       timestamps[target_idx] = unified_timestamp;
       // relabel target indexes so at to incorporate the unification
       std::replace(target_indexes.begin(), target_indexes.end(), assignment_idx, target_idx);
+      std::cout << target_idx << "<->" << assignment_idx << " : " << assignment_begin_time << " : " << costs[i]
+                << std::endl;
+      ++number_of_unifications;
     }
   } // i
+
+  std::cout << "track linking | trajectories unified: " << number_of_unifications << std::endl;
 }
 
 /**
@@ -518,7 +536,7 @@ void TrajectoryLinker::UnifyNonintersectingTrajectories(const std::vector<Eigen:
     unified_trajectory.push_back(inner_trajectory[inner_trj_time_idx]);
   }
   unified_timestamp.resize(unified_trajectory.size());
-  std::iota(unified_timestamp.begin(), unified_timestamp.end(), outer_timestamps[0]); // TODO: check the result
+  std::iota(unified_timestamp.begin(), unified_timestamp.end(), outer_timestamps[0]);
 }
 
 /**
@@ -580,6 +598,8 @@ void TrajectoryLinker::DeleteShortTrajectories(std::map<int, std::vector<Eigen::
 void TrajectoryLinker::ImposeSuccessiveLabeling(std::map<int, std::vector<Eigen::VectorXd>> &trajectories,
                                                 std::map<int, std::vector<int>> &timestamps)
 {
+  std::cout << "track linking | relabeling" << std::endl;
+
   int label = 0;
   for (std::map<int, std::vector<Eigen::VectorXd>>::iterator trj_it = trajectories.begin();
        trj_it != trajectories.end(); ++label)

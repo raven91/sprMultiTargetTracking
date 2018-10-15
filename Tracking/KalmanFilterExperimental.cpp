@@ -258,20 +258,22 @@ CostInt KalmanFilterExperimental::InitializeCostMatrix(const std::map<int, Eigen
   Eigen::VectorXd detection(kNumOfExtractedFeatures);
   Real cost = 0.0;
   Real max_cost = 0;
-  int i = 0;
+  int row = 0;
   Real d_x = 0.0, d_y = 0.0;
   Real dist = 0.0;
   Real max_dist = Real(std::sqrt(parameter_handler_.GetSubimageXSize() * parameter_handler_.GetSubimageXSize()
                                      + parameter_handler_.GetSubimageYSize() * parameter_handler_.GetSubimageYSize()));
 //  Real area_increase = 0.0;
-  for (std::map<int, Eigen::VectorXd>::const_iterator it = targets.begin(); it != targets.end(); ++it, ++i)
+  // the trajectories are not guaranteed to have successive labels
+  // row and column indexes are introduced to account for that
+  for (std::map<int, Eigen::VectorXd>::const_iterator it = targets.begin(); it != targets.end(); ++it, ++row)
   {
     target_indexes.push_back(it->first);
     target = it->second;
 
-    for (int j = 0; j < detections.size(); ++j)
+    for (int column = 0; column < detections.size(); ++column)
     {
-      detection = detections[j];
+      detection = detections[column];
       d_x = (target(0) - detection(0));
       d_y = (target(1) - detection(1));
       dist = std::sqrt(d_x * d_x + d_y * d_y);
@@ -286,7 +288,7 @@ CostInt KalmanFilterExperimental::InitializeCostMatrix(const std::map<int, Eigen
       }
 //      cost = dist * area_increase;
 
-      cost_matrix[i][j] = CostInt(cost * costs_order_of_magnitude_);
+      cost_matrix[row][column] = CostInt(cost * costs_order_of_magnitude_);
       if (max_cost < cost)
       {
         max_cost = cost;
@@ -295,11 +297,11 @@ CostInt KalmanFilterExperimental::InitializeCostMatrix(const std::map<int, Eigen
   }
 
   // turn min cost problem into max cost problem
-  for (int i = 0; i < targets.size(); ++i)
+  for (int row = 0; row < targets.size(); ++row)
   {
-    for (int j = 0; j < detections.size(); ++j)
+    for (int column = 0; column < detections.size(); ++column)
     {
-      cost_matrix[i][j] = CostInt(max_cost * costs_order_of_magnitude_) - cost_matrix[i][j];
+      cost_matrix[row][column] = CostInt(max_cost * costs_order_of_magnitude_) - cost_matrix[row][column];
     }
   }
   // the complementary values are left zero as needed for the max cost problem
