@@ -32,9 +32,9 @@ void MultitargetTracker::StartOnExperimentalData()
   ParameterHandlerExperimental parameter_handler
       (std::string("/Users/nikita/CLionProjects/sprMultiTargetTracking/Parameters/ConfigExperimental.cfg"));
   ImageProcessingEngine image_processing_engine(parameter_handler);
-  image_processing_engine.CreateNewImageProcessingOutputFile(parameter_handler);
+  image_processing_engine.CreateImageProcessingOutputFile();
   KalmanFilterExperimental kalman_filter(parameter_handler, image_processing_engine);
-  kalman_filter.CreateNewKalmanFilterOutputFiles(parameter_handler);
+  kalman_filter.CreateKalmanFilterOutputFiles();
 
   image_processing_engine.RetrieveBacterialData(parameter_handler.GetFirstImage(), detections_);
   kalman_filter.InitializeTargets(targets_, detections_);
@@ -48,15 +48,16 @@ void MultitargetTracker::StartOnExperimentalData()
   }
 
   TrajectoryLinker trajectory_linker(parameter_handler, image_processing_engine);
-  trajectory_linker.CreateNewTrackLinkingOutputFiles(parameter_handler);
-
+  trajectory_linker.CreateTrackLinkingOutputFiles();
+  trajectory_linker.InitializeTrajectories(trajectories_, timestamps_);
+  trajectory_linker.PerformTrackLinking(trajectories_, timestamps_);
 }
 
 void MultitargetTracker::PerformImageProcessingForOneExperiment(const std::string &configuration_file_name)
 {
   ParameterHandlerExperimental parameter_handler(configuration_file_name);
   ImageProcessingEngine image_processing_engine(parameter_handler);
-  image_processing_engine.CreateNewImageProcessingOutputFile(parameter_handler);
+  image_processing_engine.CreateImageProcessingOutputFile();
 
   for (int i = parameter_handler.GetFirstImage(); i <= parameter_handler.GetLastImage(); ++i)
   {
@@ -76,7 +77,7 @@ void MultitargetTracker::StartFilteringWithoutImageProcessingForOneExperiment(co
 
   ImageProcessingEngine image_processing_engine(parameter_handler);
   KalmanFilterExperimental kalman_filter(parameter_handler, image_processing_engine);
-  kalman_filter.CreateNewKalmanFilterOutputFiles(parameter_handler);
+  kalman_filter.CreateKalmanFilterOutputFiles();
   kalman_filter.InitializeTargets(targets_, image_processing_input_file);
 
   for (int i = parameter_handler.GetFirstImage() + 1; i <= parameter_handler.GetLastImage(); ++i)
@@ -86,21 +87,13 @@ void MultitargetTracker::StartFilteringWithoutImageProcessingForOneExperiment(co
   }
 }
 
-void MultitargetTracker::StartTrackLinkingViaTemporalAssignment(const std::string &configuration_file_name)
+void MultitargetTracker::StartTrackLinking(const std::string &configuration_file_name)
 {
   ParameterHandlerExperimental parameter_handler(configuration_file_name);
-  std::ostringstream filtered_trajectories_file_name_buffer;
-  filtered_trajectories_file_name_buffer << parameter_handler.GetInputFolder()
-                                         << parameter_handler.GetDataAnalysisSubfolder()
-                                         << parameter_handler.GetKalmanFilterOutputFileName();
-  std::ifstream filtered_trajectories_file(filtered_trajectories_file_name_buffer.str(), std::ios::in);
-  assert(filtered_trajectories_file.is_open());
-
   ImageProcessingEngine image_processing_engine(parameter_handler);
-  KalmanFilterExperimental kalman_filter(parameter_handler, image_processing_engine);
   TrajectoryLinker trajectory_linker(parameter_handler, image_processing_engine);
-  trajectory_linker.CreateNewTrackLinkingOutputFiles(parameter_handler);
-  trajectory_linker.InitializeTrajectories(trajectories_, timestamps_, filtered_trajectories_file);
+  trajectory_linker.CreateTrackLinkingOutputFiles();
+  trajectory_linker.InitializeTrajectories(trajectories_, timestamps_);
   trajectory_linker.PerformTrackLinking(trajectories_, timestamps_);
 }
 
@@ -141,7 +134,7 @@ void MultitargetTracker::StartImageProcessingOrFilteringForMultipleExperiments(c
                   break;
                 case '2':StartFilteringWithoutImageProcessingForOneExperiment(current_dir.string());
                   break;
-                case '3':StartTrackLinkingViaTemporalAssignment(current_dir.string());
+                case '3':StartTrackLinking(current_dir.string());
                   break;
               }
             }

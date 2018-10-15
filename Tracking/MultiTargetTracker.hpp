@@ -25,7 +25,7 @@ class MultitargetTracker
   void StartOnExperimentalData();
   void PerformImageProcessingForOneExperiment(const std::string &file_name);
   void StartFilteringWithoutImageProcessingForOneExperiment(const std::string &file_name);
-  void StartTrackLinkingViaTemporalAssignment(const std::string &configuration_file_name);
+  void StartTrackLinking(const std::string &configuration_file_name);
   void StartImageProcessingOrFilteringForMultipleExperiments(const char &dependence);
 
   void StartOnSyntheticData(Real phi, Real a, Real U0, Real kappa, Real percentage_of_misdetections);

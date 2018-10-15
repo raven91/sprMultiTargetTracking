@@ -23,10 +23,10 @@ class TrajectoryLinker
                             ImageProcessingEngine &image_processing_engine);
   ~TrajectoryLinker();
 
-  void CreateNewTrackLinkingOutputFiles(ParameterHandlerExperimental &parameter_handler);
+  void CreateTrackLinkingOutputFiles();
+  void CloseTrackLinkingOutputFiles();
   void InitializeTrajectories(std::map<int, std::vector<Eigen::VectorXd>> &trajectories,
-                              std::map<int, std::vector<int>> &timestamps,
-                              std::ifstream &file);
+                              std::map<int, std::vector<int>> &timestamps);
   void PerformTrackLinking(std::map<int, std::vector<Eigen::VectorXd>> &trajectories,
                            std::map<int, std::vector<int>> &timestamps);
 

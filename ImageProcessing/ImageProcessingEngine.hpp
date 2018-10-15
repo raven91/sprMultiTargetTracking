@@ -23,7 +23,8 @@ class ImageProcessingEngine
   explicit ImageProcessingEngine(ParameterHandlerExperimental &parameter_handler);
   ~ImageProcessingEngine();
 
-  void CreateNewImageProcessingOutputFile(ParameterHandlerExperimental &parameter_handler);
+  void CreateImageProcessingOutputFile();
+  void CloseImageProcessingOutputFile();
   void RetrieveBacterialData(int image, std::vector<Eigen::VectorXd> &detections);
   void ComposeImageForFilterOutput(int image_idx, cv::Mat &image);
 

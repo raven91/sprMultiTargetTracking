@@ -33,16 +33,24 @@ ImageProcessingEngine::ImageProcessingEngine(ParameterHandlerExperimental &param
 
 ImageProcessingEngine::~ImageProcessingEngine()
 {
-  image_processing_output_file_.close();
+  CloseImageProcessingOutputFile();
 }
 
-void ImageProcessingEngine::CreateNewImageProcessingOutputFile(ParameterHandlerExperimental &parameter_handler)
+void ImageProcessingEngine::CreateImageProcessingOutputFile()
 {
   std::string image_processing_output_file_name =
-      parameter_handler_.GetInputFolder() + parameter_handler.GetDataAnalysisSubfolder()
-          + parameter_handler.GetImageProcessingOutputFileName();
+      parameter_handler_.GetInputFolder() + parameter_handler_.GetDataAnalysisSubfolder()
+          + parameter_handler_.GetImageProcessingOutputFileName();
   image_processing_output_file_.open(image_processing_output_file_name, std::ios::out | std::ios::trunc);
   assert(image_processing_output_file_.is_open());
+}
+
+void ImageProcessingEngine::CloseImageProcessingOutputFile()
+{
+  if (image_processing_output_file_.is_open())
+  {
+    image_processing_output_file_.close();
+  }
 }
 
 void ImageProcessingEngine::RetrieveBacterialData(int image, std::vector<Eigen::VectorXd> &detections)

@@ -23,7 +23,8 @@ class KalmanFilterExperimental
                                     ImageProcessingEngine &image_processing_engine);
   ~KalmanFilterExperimental();
 
-  void CreateNewKalmanFilterOutputFiles(ParameterHandlerExperimental &parameter_handler);
+  void CreateKalmanFilterOutputFiles();
+  void CloseKalmanFilterOutputFiles();
   void InitializeTargets(std::map<int, Eigen::VectorXd> &targets, const std::vector<Eigen::VectorXd> &detections);
   void InitializeTargets(std::map<int, Eigen::VectorXd> &targets, std::ifstream &file);
   void ObtainNewDetections(std::vector<Eigen::VectorXd> &detections, std::ifstream &file);

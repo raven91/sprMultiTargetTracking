@@ -25,15 +25,14 @@ TrajectoryLinker::TrajectoryLinker(ParameterHandlerExperimental &parameter_handl
 
 TrajectoryLinker::~TrajectoryLinker()
 {
-  track_linking_output_file_.close();
-  track_linking_matlab_output_file_.close();
+  CloseTrackLinkingOutputFiles();
 }
 
-void TrajectoryLinker::CreateNewTrackLinkingOutputFiles(ParameterHandlerExperimental &parameter_handler)
+void TrajectoryLinker::CreateTrackLinkingOutputFiles()
 {
   std::string track_linking_output_file_name =
-      parameter_handler_.GetInputFolder() + parameter_handler.GetDataAnalysisSubfolder()
-          + parameter_handler.GetTrackLinkingOutputFileName();
+      parameter_handler_.GetInputFolder() + parameter_handler_.GetDataAnalysisSubfolder()
+          + parameter_handler_.GetTrackLinkingOutputFileName();
   track_linking_output_file_.open(track_linking_output_file_name, std::ios::out | std::ios::trunc);
   assert(track_linking_output_file_.is_open());
 
@@ -44,23 +43,39 @@ void TrajectoryLinker::CreateNewTrackLinkingOutputFiles(ParameterHandlerExperime
   assert(track_linking_matlab_output_file_.is_open());
 }
 
-void TrajectoryLinker::InitializeTrajectories(std::map<int, std::vector<Eigen::VectorXd>> &trajectories,
-                                              std::map<int, std::vector<int>> &timestamps,
-                                              std::ifstream &file)
+void TrajectoryLinker::CloseTrackLinkingOutputFiles()
 {
-  int last_index = 0;
+  if (track_linking_output_file_.is_open())
+  {
+    track_linking_output_file_.close();
+  }
+  if (track_linking_matlab_output_file_.is_open())
+  {
+    track_linking_matlab_output_file_.close();
+  }
+}
+
+void TrajectoryLinker::InitializeTrajectories(std::map<int, std::vector<Eigen::VectorXd>> &trajectories,
+                                              std::map<int, std::vector<int>> &timestamps)
+{
+  std::string kalman_filter_output_file_name =
+      parameter_handler_.GetInputFolder() + parameter_handler_.GetDataAnalysisSubfolder()
+          + parameter_handler_.GetKalmanFilterOutputFileName();
+  std::ifstream kalman_filter_output_file(kalman_filter_output_file_name, std::ios::in);
+  assert(kalman_filter_output_file.is_open());
+
   Eigen::VectorXd new_target = Eigen::MatrixXd::Zero(kNumOfExtractedFeatures, 1);
   int time_idx = 0;
   int target_idx = 0;
   int number_of_targets = 0;
 
-  while (file >> time_idx >> number_of_targets)
+  while (kalman_filter_output_file >> time_idx >> number_of_targets)
   {
     for (int b = 0; b < number_of_targets; ++b)
     {
-      file >> target_idx
-           >> new_target(0) >> new_target(1) >> new_target(2) >> new_target(3)
-           >> new_target(4) >> new_target(5) >> new_target(6) >> new_target(7);
+      kalman_filter_output_file >> target_idx
+                                >> new_target(0) >> new_target(1) >> new_target(2) >> new_target(3)
+                                >> new_target(4) >> new_target(5) >> new_target(6) >> new_target(7);
 
       if (trajectories.find(target_idx) == trajectories.end())
       {

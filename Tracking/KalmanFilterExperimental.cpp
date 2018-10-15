@@ -56,16 +56,14 @@ KalmanFilterExperimental::KalmanFilterExperimental(ParameterHandlerExperimental 
 
 KalmanFilterExperimental::~KalmanFilterExperimental()
 {
-  // TODO: move file closure to a separate function as is for the construction
-  kalman_filter_output_file_.close();
-  kalman_filter_matlab_output_file_.close();
+  CloseKalmanFilterOutputFiles();
 }
 
-void KalmanFilterExperimental::CreateNewKalmanFilterOutputFiles(ParameterHandlerExperimental &parameter_handler)
+void KalmanFilterExperimental::CreateKalmanFilterOutputFiles()
 {
   std::string kalman_filter_output_file_name =
-      parameter_handler_.GetInputFolder() + parameter_handler.GetDataAnalysisSubfolder()
-          + parameter_handler.GetKalmanFilterOutputFileName();
+      parameter_handler_.GetInputFolder() + parameter_handler_.GetDataAnalysisSubfolder()
+          + parameter_handler_.GetKalmanFilterOutputFileName();
   kalman_filter_output_file_.open(kalman_filter_output_file_name, std::ios::out | std::ios::trunc);
   assert(kalman_filter_output_file_.is_open());
 
@@ -74,6 +72,18 @@ void KalmanFilterExperimental::CreateNewKalmanFilterOutputFiles(ParameterHandler
           + parameter_handler_.GetKalmanFilterMatlabOutputFileName();
   kalman_filter_matlab_output_file_.open(kalman_filter_matlab_output_file_name, std::ios::out | std::ios::trunc);
   assert(kalman_filter_matlab_output_file_.is_open());
+}
+
+void KalmanFilterExperimental::CloseKalmanFilterOutputFiles()
+{
+  if (kalman_filter_output_file_.is_open())
+  {
+    kalman_filter_output_file_.close();
+  }
+  if (kalman_filter_matlab_output_file_.is_open())
+  {
+    kalman_filter_matlab_output_file_.close();
+  }
 }
 
 void KalmanFilterExperimental::InitializeTargets(std::map<int, Eigen::VectorXd> &targets,
