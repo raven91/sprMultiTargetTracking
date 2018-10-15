@@ -112,8 +112,9 @@ void TrajectoryLinker::PerformTrackLinking(std::map<int, std::vector<Eigen::Vect
                                         costs);
   UnassignUnrealisticAssociations(assignments, costs);
   ConnectBrokenTrajectories(trajectories, timestamps, target_indexes, assignments, costs);
-//  ImposeSuccessiveLabeling(trajectories, timestamps);
+  ImposeSuccessiveLabeling(trajectories, timestamps);
 
+  std::cout << "trajectory linking | saving of trajectories" << std::endl;
   SaveTrajectories(track_linking_output_file_, trajectories, timestamps);
   SaveTrajectoriesMatlab(track_linking_matlab_output_file_, trajectories, timestamps);
   SaveImagesWithVectors(trajectories, timestamps);
@@ -468,10 +469,10 @@ void TrajectoryLinker::ConnectBrokenTrajectories(std::map<int, std::vector<Eigen
       timestamps.erase(assignment_idx);
       trajectories[target_idx] = unified_trajectory;
       timestamps[target_idx] = unified_timestamp;
-      // relabel target indexes so at to incorporate the unification
+      // relabel target indexes because the mapped index can occur later
       std::replace(target_indexes.begin(), target_indexes.end(), assignment_idx, target_idx);
-      std::cout << target_idx << "<->" << assignment_idx << " : " << assignment_begin_time << " : " << costs[i]
-                << std::endl;
+//      std::cout << target_idx << "<->" << assignment_idx << " : " << assignment_begin_time << " : " << costs[i]
+//                << std::endl;
       ++number_of_unifications;
     }
   } // i
