@@ -60,6 +60,7 @@ class ParameterHandlerExperimental
   int GetTrackLinkingIntersectionTime();
   int GetTrackLinkingLagTime();
   Real GetTrackLinkingDataAssociationCost();
+  int GetMinTrajectoryLength();
 
  private:
 
@@ -109,6 +110,7 @@ class ParameterHandlerExperimental
   int track_linking_intersection_time_;
   int track_linking_lag_time_;
   Real track_linking_data_association_cost_;
+  int min_trajectory_length_;
 
 };
 

@@ -71,6 +71,7 @@ ParameterHandlerExperimental::ParameterHandlerExperimental(const std::string &fi
   track_linking_intersection_time_ = (int) parameters_dictionary["track_linking_intersection_time"];
   track_linking_lag_time_ = (int) parameters_dictionary["track_linking_lag_time"];
   track_linking_data_association_cost_ = (int) parameters_dictionary["track_linking_data_association_cost"];
+  min_trajectory_length_ = (int) parameters_dictionary["min_trajectory_length"];
 }
 
 ParameterHandlerExperimental::~ParameterHandlerExperimental()
@@ -301,4 +302,9 @@ int ParameterHandlerExperimental::GetTrackLinkingLagTime()
 Real ParameterHandlerExperimental::GetTrackLinkingDataAssociationCost()
 {
   return track_linking_data_association_cost_;
+}
+
+int ParameterHandlerExperimental::GetMinTrajectoryLength()
+{
+  return min_trajectory_length_;
 }

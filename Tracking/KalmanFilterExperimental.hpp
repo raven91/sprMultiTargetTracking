@@ -61,6 +61,10 @@ class KalmanFilterExperimental
                               std::vector<int> &target_indexes,
                               std::vector<int> &assignments,
                               std::vector<CostInt> &costs);
+  CostInt InitializeCostMatrix(const std::map<int, Eigen::VectorXd> &targets,
+                               const std::vector<Eigen::VectorXd> &detections,
+                               std::vector<std::vector<CostInt>> &cost_matrix,
+                               std::vector<int> &target_indexes);
   void UnassignUnrealisticTargets(const std::map<int, Eigen::VectorXd> &targets,
                                   const std::vector<Eigen::VectorXd> &detections,
                                   int n_max_dim,
@@ -83,10 +87,6 @@ class KalmanFilterExperimental
                      const std::vector<int> &assignments);
   void DeleteLongLostTargets(std::map<int, Eigen::VectorXd> &targets);
   void CorrectForOrientationUniqueness(std::map<int, Eigen::VectorXd> &targets);
-  CostInt InitializeCostMatrix(const std::map<int, Eigen::VectorXd> &targets,
-                               const std::vector<Eigen::VectorXd> &detections,
-                               std::vector<std::vector<CostInt>> &cost_matrix,
-                               std::vector<int> &target_indexes);
 
   void SaveTargets(std::ofstream &file, int image_idx, const std::map<int, Eigen::VectorXd> &targets);
   void SaveTargetsMatlab(std::ofstream &file, int image_idx, const std::map<int, Eigen::VectorXd> &targets);

@@ -12,6 +12,7 @@
 #include <iterator>   // std::next
 #include <algorithm>
 #include <cmath>
+#include <numeric>    // std::iota
 
 TrajectoryLinker::TrajectoryLinker(ParameterHandlerExperimental &parameter_handler,
                                    ImageProcessingEngine &image_processing_engine) :
@@ -91,9 +92,11 @@ void TrajectoryLinker::PerformTrackLinking(std::map<int, std::vector<Eigen::Vect
   UnassignUnrealisticAssociations(assignments, costs);
   ConnectBrokenTrajectories(trajectories, timestamps, target_indexes, assignments, costs);
   DeleteShortTrajectories(trajectories, timestamps);
-  FillHolesInMaps(trajectories, timestamps);
+  ImposeSuccessiveLabeling(trajectories, timestamps);
+
   SaveTrajectories(track_linking_output_file_, trajectories, timestamps);
   SaveTrajectoriesMatlab(track_linking_matlab_output_file_, trajectories, timestamps);
+  SaveImagesWithVectors(trajectories, timestamps);
 }
 
 void TrajectoryLinker::PerformDataAssociationForTrackLinking(std::map<int,
@@ -121,368 +124,6 @@ void TrajectoryLinker::PerformDataAssociationForTrackLinking(std::map<int,
                 });
 }
 
-void TrajectoryLinker::UnassignUnrealisticAssociations(std::vector<int> &assignments, const std::vector<CostInt> &costs)
-{
-  for (int i = 0; i < costs.size(); ++i)
-  {
-    if (costs[i] > parameter_handler_.GetTrackLinkingDataAssociationCost())
-    {
-      assignments[i] = -1;
-    }
-  }
-}
-
-void TrajectoryLinker::ConnectBrokenTrajectories(std::map<int, std::vector<Eigen::VectorXd>> &trajectories,
-                                                 std::map<int, std::vector<int>> &timestamps,
-                                                 std::vector<int> &target_indexes,
-                                                 std::vector<int> &assignments,
-                                                 std::vector<CostInt> &costs)
-{
-  std::cout << "track linking | unification of tracklings" << std::endl;
-
-  // check the distance
-  for (int i = 0; i < costs.size(); ++i)
-  {
-    if (assignments[i] != -1)
-    {
-      int min_idx = std::min(target_indexes[i], assignments[i]);
-      int max_idx = std::max(target_indexes[i], assignments[i]);
-
-      std::map<int, std::vector<Eigen::VectorXd>>::iterator outer_trajectory_iter(trajectories.find(min_idx));
-      std::map<int, std::vector<Eigen::VectorXd>>::iterator inner_trajectory_iter(trajectories.find(max_idx));
-      std::map<int, std::vector<int>>::iterator outer_timestamps_iter(timestamps.find(min_idx));
-      std::map<int, std::vector<int>>::iterator inner_timestamps_iter(timestamps.find(max_idx));
-
-      std::vector<int> trial;
-
-      int first_trj_idx = outer_trajectory_iter->first;
-      int second_trj_idx = inner_trajectory_iter->first;
-
-      int outer_trj_end_time = timestamps[first_trj_idx][timestamps[first_trj_idx].size() - 1];
-      int inner_trj_begin_time = timestamps[second_trj_idx][0];
-      int outer_trj_begin_time = timestamps[first_trj_idx][0];
-      int inner_trj_end_time = timestamps[second_trj_idx][timestamps[second_trj_idx].size() - 1];
-
-      int s = 0; // TODO: whether trajectories intersect; whether trajectories time-lapsed
-
-      if (outer_trj_end_time - inner_trj_begin_time >= 0
-          && outer_trj_end_time - inner_trj_begin_time <= parameter_handler_.GetTrackLinkingIntersectionTime())
-      {
-        s = outer_trj_end_time - inner_trj_begin_time; // trajectories intersect Ti goes BEFORE Tj
-      }
-      if (inner_trj_end_time - outer_trj_begin_time >= 0
-          && inner_trj_end_time - outer_trj_begin_time <= parameter_handler_.GetTrackLinkingIntersectionTime())
-      {
-        s = inner_trj_end_time - outer_trj_begin_time; // trajectories intersect Ti goes AFTER Tj
-        outer_trajectory_iter = trajectories.find(max_idx);
-        inner_trajectory_iter = trajectories.find(min_idx);
-        outer_timestamps_iter = timestamps.find(max_idx);
-        inner_timestamps_iter = timestamps.find(min_idx);
-      }
-      if (inner_trj_begin_time - outer_trj_end_time > 0
-          && inner_trj_begin_time - outer_trj_end_time <= parameter_handler_.GetTrackLinkingLagTime())
-      {
-        s = inner_trj_begin_time - outer_trj_end_time; // trajectories NOT intersect Ti goes BEFORE Tj
-        /// HERE perform continuation of trajectories
-        PerformTrajectoryContinuation(outer_trajectory_iter,
-                                      inner_trajectory_iter,
-                                      outer_timestamps_iter,
-                                      inner_timestamps_iter,
-                                      s);
-      }
-      if (outer_trj_begin_time - inner_trj_end_time > 0
-          && inner_trj_end_time - outer_trj_begin_time <= parameter_handler_.GetTrackLinkingLagTime())
-      {
-        s = outer_trj_begin_time - inner_trj_end_time; // trajectories NOT intersect Ti goes AFTER Tj
-        /// HERE perform continuation of trajectories
-        PerformTrajectoryContinuation(inner_trajectory_iter,
-                                      outer_trajectory_iter,
-                                      inner_timestamps_iter,
-                                      outer_timestamps_iter,
-                                      s);
-      }
-
-      // creating new trajectory by connecting previous two
-      std::vector<Eigen::VectorXd> new_trajectory;
-      std::vector<int> new_timestamp;
-      for (int pre_intersection_time = 0; pre_intersection_time < outer_trajectory_iter->second.size() - 1 - s;
-           ++pre_intersection_time)
-      {
-        new_trajectory.push_back(outer_trajectory_iter->second[pre_intersection_time]);
-        new_timestamp.push_back(outer_timestamps_iter->second[pre_intersection_time]);
-      } // pre_intersection_time
-
-      for (int intersection_time = 0; intersection_time <= s; ++intersection_time)
-      {
-        Eigen::VectorXd new_trajectory_part(kNumOfExtractedFeatures);
-        for (int state_element = 0; state_element < kNumOfExtractedFeatures; ++state_element)
-        {
-          new_trajectory_part(state_element) =
-              (outer_trajectory_iter->second[outer_trajectory_iter->second.size() - 1 - s + intersection_time](
-                  state_element) + inner_trajectory_iter->second[intersection_time](state_element)) / 2;
-        }
-        new_trajectory.push_back(new_trajectory_part);
-        new_timestamp.push_back(outer_timestamps_iter->second[
-                                    outer_trajectory_iter->second.size() - 1 - s + intersection_time]);
-      } // intersection_time
-
-      for (int post_intersection_time = s + 1; post_intersection_time < inner_trajectory_iter->second.size();
-           ++post_intersection_time)
-      {
-        new_trajectory.push_back(inner_trajectory_iter->second[post_intersection_time]);
-        new_timestamp.push_back(inner_timestamps_iter->second[post_intersection_time]);
-      } // post_intersection_time
-
-      // removing old unnecessary trajectories from map
-      outer_trajectory_iter = trajectories.find(min_idx);
-      if (outer_trajectory_iter != trajectories.end())
-      {
-        std::cout << "At " << timestamps.find(max_idx)->second[0] << "th second " << "beginning trajectory index = "
-                  << outer_trajectory_iter->first;
-        trajectories.erase(outer_trajectory_iter);
-      }
-      outer_trajectory_iter = trajectories.find(max_idx);
-      if (outer_trajectory_iter != trajectories.end())
-      {
-        std::cout << " | | ending trajectory index = " << outer_trajectory_iter->first << "and they are now connected"
-                  << std::endl;
-        trajectories.erase(outer_trajectory_iter);
-      }
-      // creating new trajectory in a map
-      trajectories[min_idx] = new_trajectory;
-
-      // removing old unnecessary timestamps from map
-      outer_timestamps_iter = timestamps.find(min_idx);
-      if (outer_timestamps_iter != timestamps.end())
-      {
-        timestamps.erase(outer_timestamps_iter);
-      }
-      outer_timestamps_iter = timestamps.find(max_idx);
-      if (outer_timestamps_iter != timestamps.end())
-      {
-        timestamps.erase(outer_timestamps_iter);
-      }
-      // creating new timestamp in a map
-      timestamps[min_idx] = new_timestamp;
-
-      std::replace(assignments.begin(), assignments.end(), max_idx, min_idx);
-      std::replace(target_indexes.begin(), target_indexes.end(), max_idx, min_idx);
-    }
-  } // i
-}
-
-void TrajectoryLinker::DeleteShortTrajectories(std::map<int, std::vector<Eigen::VectorXd>> &trajectories,
-                                               std::map<int, std::vector<int>> &timestamps)
-{
-  int min_traj_length = 2;
-  int counter = 0;
-  for (std::map<int, std::vector<Eigen::VectorXd>>::iterator traj_it = trajectories.begin();
-       traj_it != trajectories.end();)
-  {
-    if (traj_it->second.size() <= min_traj_length)
-    {
-      std::map<int, std::vector<int>>::iterator time_it_del = timestamps.find(traj_it->first);
-      timestamps.erase(time_it_del);
-      traj_it = trajectories.erase(traj_it);
-      ++counter;
-    } else
-    {
-      ++traj_it;
-    }
-  }
-  std::cout << "# deleted short trajectories: " << counter << std::endl;
-}
-
-void TrajectoryLinker::PerformTrajectoryContinuation(
-    const std::map<int, std::vector<Eigen::VectorXd>>::iterator &outer_trajectory_iter,
-    const std::map<int, std::vector<Eigen::VectorXd>>::iterator &inner_trajectory_iter,
-    const std::map<int, std::vector<int>>::iterator &outer_timestamps_iter,
-    const std::map<int, std::vector<int>>::iterator &inner_timestamps_iter,
-    int s)
-{
-  Real v_t_x_outer = outer_trajectory_iter->second[outer_trajectory_iter->second.size() - 1](0)
-      - outer_trajectory_iter->second[outer_trajectory_iter->second.size() - 2](0);
-  Real v_t_y_outer = outer_trajectory_iter->second[outer_trajectory_iter->second.size() - 1](1)
-      - outer_trajectory_iter->second[outer_trajectory_iter->second.size() - 2](1);
-
-  Real v_t_x_inner = inner_trajectory_iter->second[1](0) - (inner_trajectory_iter->second[0](0));
-  Real v_t_y_inner = inner_trajectory_iter->second[1](1) - (inner_trajectory_iter->second[0](1));
-
-  // building continuation of outer trajectory
-  Real continued_trj_x = outer_trajectory_iter->second[outer_trajectory_iter->second.size() - 1](0);
-  Real continued_trj_y = outer_trajectory_iter->second[outer_trajectory_iter->second.size() - 1](1);
-  for (int continuation_time = 0; continuation_time <= s; ++continuation_time)
-  {
-    if (continuation_time == 0) // It's the last element of outer trajectory
-    {
-      continue;// just skip it
-    } else // push other elements
-    {
-      Eigen::VectorXd new_outer_point;
-      continued_trj_x += v_t_x_outer;
-      continued_trj_y += v_t_y_outer;
-      new_outer_point << continued_trj_x, continued_trj_y, v_t_x_outer, v_t_y_outer,
-          outer_trajectory_iter->second[outer_trajectory_iter->second.size() - 1](4),
-          outer_trajectory_iter->second[outer_trajectory_iter->second.size() - 1](5),
-          outer_trajectory_iter->second[outer_trajectory_iter->second.size() - 1](6),
-          outer_trajectory_iter->second[outer_trajectory_iter->second.size() - 1](7);
-
-      outer_trajectory_iter->second.push_back(new_outer_point);
-      outer_timestamps_iter->second.push_back(
-          outer_timestamps_iter->second[outer_timestamps_iter->second.size() - 1] + 1);
-    }
-  }
-
-  // building beginning of inner trajectory
-  continued_trj_x = inner_trajectory_iter->second[0](0);
-  continued_trj_y = inner_trajectory_iter->second[0](1);
-  for (int continuation_time = 0; continuation_time <= s; ++continuation_time)
-  {
-    if (continuation_time == 0) // It's the first element of inner trajectory
-    {
-      continue;// just skip it
-    } else // push other elements
-    {
-      Eigen::VectorXd new_inner_point;
-      continued_trj_x -= v_t_x_inner;
-      continued_trj_y -= v_t_y_inner;
-      new_inner_point << continued_trj_x, continued_trj_y, v_t_x_inner, v_t_y_inner,
-          inner_trajectory_iter->second[0](4),
-          inner_trajectory_iter->second[0](5),
-          inner_trajectory_iter->second[0](6),
-          inner_trajectory_iter->second[0](7);
-
-      inner_trajectory_iter->second.insert(inner_trajectory_iter->second.begin(), new_inner_point);
-      inner_timestamps_iter->second.insert(inner_timestamps_iter->second.begin(), inner_timestamps_iter->second[0] - 1);
-    }
-  }
-}
-
-void TrajectoryLinker::FillHolesInMaps(std::map<int, std::vector<Eigen::VectorXd>> &trajectories,
-                                       std::map<int, std::vector<int>> &timestamps)
-{
-  std::map<int, std::vector<Eigen::VectorXd>>::iterator traj_it;
-  for (traj_it = trajectories.begin(); traj_it != trajectories.end(); ++traj_it)
-  {
-    //auto cur_traj_it = traj_it;
-    auto next_traj_it = std::next(traj_it);
-    if (next_traj_it != trajectories.end())
-    {
-      if (next_traj_it->first - traj_it->first > 1)
-      {
-        //std::cout << "first  key " << traj_it->first << "  " << trajectories[traj_it->first][0] << std::endl;
-        //std::cout << "next first  key " << next_traj_it->first << "  " << trajectories[next_traj_it->first][0] << std::endl;
-        //std::cout << "last   key " << std::prev(trajectories.end())->first << "  " << trajectories[std::prev(trajectories.end())->first][0] << std::endl;
-        trajectories[traj_it->first + 1] = std::prev(trajectories.end())->second;
-        timestamps[traj_it->first + 1] = std::prev(timestamps.end())->second;
-        trajectories.erase(std::prev(trajectories.end()));
-        timestamps.erase(std::prev(timestamps.end()));
-        //std::cout << "second key " << (std::next(traj_it))->first << "  " << trajectories[(std::next(traj_it))->first][0] << std::endl;
-      }
-    }
-  }
-  if (trajectories.begin()->first > 0)
-  {
-    for (int i = 0; i < trajectories.begin()->first; ++i)
-    {
-      trajectories[i] = std::prev(trajectories.end())->second;
-      timestamps[i] = std::prev(timestamps.end())->second;
-      trajectories.erase(std::prev(trajectories.end()));
-      timestamps.erase(std::prev(timestamps.end()));
-    }
-  }
-}
-
-void TrajectoryLinker::SaveTrajectories(std::ofstream &file,
-                                        const std::map<int, std::vector<Eigen::VectorXd>> &trajectories,
-                                        const std::map<int, std::vector<int>> &timestamps)
-{
-  // TODO: save time-points and number of targets per time-point
-  for (int i = parameter_handler_.GetFirstImage(); i <= parameter_handler_.GetLastImage(); ++i)
-  {
-    int counter = 0;
-
-    cv::Mat image;
-    image = image_processing_engine_.GetSourceImage(i);
-    cv::Point2f center;
-    cv::Scalar color(255, 127, 0);
-
-    std::map<int, std::vector<int>>::const_iterator time;
-    for (time = timestamps.begin(); time != timestamps.end(); ++time)
-    {
-      if (std::find(time->second.begin(), time->second.end(), i) != time->second.end())
-        ++counter;
-    }
-    file
-        << i << " "
-        << counter << " ";
-    for (time = timestamps.begin(); time != timestamps.end(); ++time)
-    {
-      if (std::find(time->second.begin(), time->second.end(), i) != time->second.end())
-      {
-
-        auto ts_iter = std::find(time->second.begin(), time->second.end(), i);
-        if (time->second.size() == trajectories.at(time->first).size())
-        {
-          auto bactery_data = trajectories.at(time->first)[std::distance(time->second.begin(), ts_iter)];
-          file
-              << time->first << " "
-              << bactery_data(0) << " "
-              << bactery_data(1) << " "
-              << bactery_data(2) << " "
-              << bactery_data(3) << " "
-              << bactery_data(4) << " "
-              << bactery_data(5) << " "
-              << bactery_data(6) << " "
-              << bactery_data(7) << " ";
-
-          center = cv::Point2f(bactery_data(0), bactery_data(1));
-          cv::circle(image, center, 3, color, -1, 8);
-          cv::putText(image, std::to_string(time->first), center, cv::FONT_HERSHEY_DUPLEX, 0.4, color);
-          cv::line(image,
-                   center,
-                   center + cv::Point2f(bactery_data(2), bactery_data(3)),
-                   cv::Scalar(255, 0, 0));
-        }
-      }
-    }
-    file << std::endl;
-    std::ostringstream output_image_name_buf;
-    output_image_name_buf << parameter_handler_.GetInputFolder()
-                          << parameter_handler_.GetFileName0() << std::setfill('0') << std::setw(9) << i
-                          << parameter_handler_.GetFileName1();
-    std::string output_image_name = output_image_name_buf.str();
-    cv::imwrite(output_image_name, image);
-  }
-}
-
-void TrajectoryLinker::SaveTrajectoriesMatlab(std::ofstream &file,
-                                              const std::map<int, std::vector<Eigen::VectorXd>> &trajectories,
-                                              const std::map<int, std::vector<int>> &timestamps)
-{
-  // TODO: save time-points and number of targets per time-point
-  std::map<int, std::vector<Eigen::VectorXd>>::const_iterator it;
-  std::map<int, std::vector<int>>::const_iterator time = timestamps.begin();
-  for (it = trajectories.begin(); it != trajectories.end(); ++it)
-  {
-    for (int i = 0; i < trajectories.at(it->first).size(); ++i)
-    {
-      file
-          << time->second[i] << " "   // index of every image
-          << it->first << " "
-          << it->second[i](0) << " "
-          << it->second[i](1) << " "
-          << it->second[i](2) << " "
-          << it->second[i](3) << " "
-          << it->second[i](4) << " "
-          << it->second[i](5) << " "
-          << it->second[i](6) << " "
-          << it->second[i](7) << std::endl;
-    }
-    ++time;
-  }
-}
-
 CostInt TrajectoryLinker::InitializeCostMatrixForTrackLinking(std::map<int, std::vector<Eigen::VectorXd>> &trajectories,
                                                               std::map<int, std::vector<int>> &timestamps,
                                                               std::vector<std::vector<CostInt>> &cost_matrix,
@@ -499,7 +140,6 @@ CostInt TrajectoryLinker::InitializeCostMatrixForTrackLinking(std::map<int, std:
        outer_trj_it != trajectories.end(); ++outer_trj_it)
   {
     target_indexes.push_back(outer_trj_it->first);
-    std::cout << "outer_trajectory #" << outer_trj_it->first << std::endl;
 
     for (std::map<int, std::vector<Eigen::VectorXd>>::iterator inner_trj_it = trajectories.begin();
          inner_trj_it != trajectories.end(); ++inner_trj_it)
@@ -512,16 +152,8 @@ CostInt TrajectoryLinker::InitializeCostMatrixForTrackLinking(std::map<int, std:
       int inner_trj_begin_time = timestamps[inner_trj_idx][0];
       int inner_trj_end_time = timestamps[inner_trj_idx][timestamps[inner_trj_idx].size() - 1];
 
-//      // EXCLUDING trajectories with length < tau + 1
-//      if ((outer_trj_it->second.size() <= tau) || (inner_trj_it->second.size() <= tau))
-//      {
-//        cost_matrix[outer_trj_it->first][inner_trj_it->first] = -1; // TODO: make sure the indexing is correct
-//        continue;
-//      }
-
       if (inner_trj_it->first == outer_trj_it->first)
       {
-//        cost_matrix[outer_trj_it->first][inner_trj_it->first] = -1;
         continue; // TODO: is it required?
       }
 
@@ -540,14 +172,9 @@ CostInt TrajectoryLinker::InitializeCostMatrixForTrackLinking(std::map<int, std:
           cost_matrix[outer_trj_idx][inner_trj_idx] = CostInt(cost * costs_order_of_magnitude_);
           continue;
         }
-//        if (!CheckDistance(outer_trj_it, inner_trj_it))
-//        {
-//          cost_matrix[outer_trj_it->first][inner_trj_it->first] = -1;
-//          continue;
-//        }
       }
 
-      // trajectories do not intersect: inner, outer (in time)
+/*      // trajectories do not intersect: inner, outer (in time)
       if ((outer_trj_begin_time - inner_trj_end_time >= 1)
           && (outer_trj_begin_time - inner_trj_end_time <= parameter_handler_.GetTrackLinkingLagTime()))
       {
@@ -562,12 +189,8 @@ CostInt TrajectoryLinker::InitializeCostMatrixForTrackLinking(std::map<int, std:
           cost_matrix[outer_trj_idx][inner_trj_idx] = CostInt(cost * costs_order_of_magnitude_);
           continue;
         }
-//        if (!CheckDistance(inner_trj_it, outer_trj_it))
-//        {
-//          cost_matrix[outer_trj_it->first][inner_trj_it->first] = -1;
-//          continue;
-//        }
       }
+      */
 
       // trajectories intersect: outer, inner (in time)
       if ((outer_trj_end_time - inner_trj_begin_time >= 0)
@@ -575,10 +198,10 @@ CostInt TrajectoryLinker::InitializeCostMatrixForTrackLinking(std::map<int, std:
       {
         if (!IsLinkingNearBoundary(outer_trj_it->second[outer_trj_it->second.size() - 1], inner_trj_it->second[0]))
         {
+          int s = outer_trj_end_time - inner_trj_begin_time;
           cost = ComputeCostMatrixEntryWithIntersection(outer_trj_it,
                                                         inner_trj_it,
-                                                        outer_trj_end_time,
-                                                        inner_trj_begin_time);
+                                                        s);
           if (max_cost < cost)
           {
             max_cost = cost;
@@ -586,23 +209,18 @@ CostInt TrajectoryLinker::InitializeCostMatrixForTrackLinking(std::map<int, std:
           cost_matrix[outer_trj_idx][inner_trj_idx] = CostInt(cost * costs_order_of_magnitude_);
           continue;
         }
-//        if (!CheckDistance(outer_trj_it, inner_trj_it))
-//        {
-//          cost_matrix[outer_trj_it->first][inner_trj_it->first] = -1;
-//          continue;
-//        }
       }
 
-      // trajectories intersect: inner, outer (in time)
+/*      // trajectories intersect: inner, outer (in time)
       if ((inner_trj_end_time - outer_trj_begin_time >= 0)
           && (inner_trj_end_time - outer_trj_begin_time <= parameter_handler_.GetTrackLinkingIntersectionTime()))
       {
         if (!IsLinkingNearBoundary(outer_trj_it->second[0], inner_trj_it->second[inner_trj_it->second.size() - 1]))
         {
+          int s = inner_trj_end_time - outer_trj_begin_time;
           cost = ComputeCostMatrixEntryWithIntersection(inner_trj_it,
                                                         outer_trj_it,
-                                                        inner_trj_end_time,
-                                                        outer_trj_begin_time);
+                                                        s);
           if (max_cost < cost)
           {
             max_cost = cost;
@@ -610,12 +228,8 @@ CostInt TrajectoryLinker::InitializeCostMatrixForTrackLinking(std::map<int, std:
           cost_matrix[outer_trj_idx][inner_trj_idx] = CostInt(cost * costs_order_of_magnitude_);
           continue;
         }
-//        if (!CheckDistance(inner_trj_it, outer_trj_it))
-//        {
-//          cost_matrix[outer_trj_it->first][inner_trj_it->first] = -1;
-//          continue;
-//        }
       }
+      */
     } // inner_trj_it
   } // outer_trj_it
 
@@ -638,62 +252,24 @@ CostInt TrajectoryLinker::InitializeCostMatrixForTrackLinking(std::map<int, std:
   return CostInt(max_cost * costs_order_of_magnitude_);
 }
 
-///**
-// * outer, inner (in time)
-// * @param outer_trj_it
-// * @param inner_trj_it
-// * @return
-// */
-//bool TrajectoryLinker::CheckDistance(const std::map<int,
-//                                                    std::vector<Eigen::VectorXd>>::iterator &outer_trj_it,
-//                                     const std::map<int,
-//                                                    std::vector<Eigen::VectorXd>>::iterator &inner_trj_it)
-//{
-////  int sigma = 25;
-//  if (((outer_trj_it->second[outer_trj_it->second.size() - 1](0)) < sigma)
-//      && ((inner_trj_it->second[0](0)) < sigma))
-//  {
-//    return false;
-//  }
-//  if (((outer_trj_it->second[outer_trj_it->second.size() - 1](1)) < sigma)
-//      && ((inner_trj_it->second[0](1)) < sigma))
-//  {
-//    return false;
-//  }
-//  if ((parameter_handler_.GetSubimageXSize() - (outer_trj_it->second[outer_trj_it->second.size() - 1](0)) < sigma)
-//      && (parameter_handler_.GetSubimageXSize() - (inner_trj_it->second[0](0)) < sigma))
-//  {
-//    return false;
-//  }
-//  if ((parameter_handler_.GetSubimageYSize() - (outer_trj_it->second[outer_trj_it->second.size() - 1](1)) < sigma)
-//      && (parameter_handler_.GetSubimageYSize() - (inner_trj_it->second[0](1)) < sigma))
-//  {
-//    return false;
-//  }
-//  return true;
-//}
-
 bool TrajectoryLinker::IsLinkingNearBoundary(const Eigen::VectorXd &outer_trajectory_point,
                                              const Eigen::VectorXd &inner_trajectory_point)
 {
-  if ((outer_trajectory_point(0) < parameter_handler_.GetTrackLinkingRoiMargin())
-      && (inner_trajectory_point(0) < parameter_handler_.GetTrackLinkingRoiMargin()))
+  Real x_left = parameter_handler_.GetTrackLinkingRoiMargin();
+  Real x_right = parameter_handler_.GetSubimageXSize() - parameter_handler_.GetTrackLinkingRoiMargin();
+  Real y_top = parameter_handler_.GetTrackLinkingRoiMargin();
+  Real y_bottom = parameter_handler_.GetSubimageYSize() - parameter_handler_.GetTrackLinkingRoiMargin();
+
+  if ((outer_trajectory_point(0) < x_left) && (inner_trajectory_point(0) < x_left))
   {
     return true;
-  } else if ((outer_trajectory_point(1) < parameter_handler_.GetTrackLinkingRoiMargin())
-      && (inner_trajectory_point(1) < parameter_handler_.GetTrackLinkingRoiMargin()))
+  } else if ((outer_trajectory_point(1) < y_top) && (inner_trajectory_point(1) < y_top))
   {
     return true;
-  } else if ((outer_trajectory_point(0)
-      > parameter_handler_.GetSubimageXSize() - parameter_handler_.GetTrackLinkingRoiMargin())
-      && (inner_trajectory_point(0)
-          > parameter_handler_.GetSubimageXSize() - parameter_handler_.GetTrackLinkingRoiMargin()))
+  } else if ((outer_trajectory_point(0) > x_right) && (inner_trajectory_point(0) > x_right))
   {
     return true;
-  } else if ((outer_trajectory_point(1)
-      > parameter_handler_.GetSubimageYSize() - parameter_handler_.GetTrackLinkingRoiMargin())
-      && (inner_trajectory_point(1)
-          > parameter_handler_.GetSubimageYSize() - parameter_handler_.GetTrackLinkingRoiMargin()))
+  } else if ((outer_trajectory_point(1) > y_bottom) && (inner_trajectory_point(1) > y_bottom))
   {
     return true;
   } else
@@ -714,62 +290,39 @@ Real TrajectoryLinker::ComputeCostMatrixEntryWithoutIntersection(
     const std::map<int, std::vector<Eigen::VectorXd>>::iterator &inner_trj_it,
     int s)
 {
-//  Real v_t_x_outer = iter_trj_outer->second[iter_trj_outer->second.size() - 1](0)
-//      - iter_trj_outer->second[iter_trj_outer->second.size() - 2](0);
-//  Real v_t_y_outer = iter_trj_outer->second[iter_trj_outer->second.size() - 1](1)
-//      - iter_trj_outer->second[iter_trj_outer->second.size() - 2](1);
-//  Real v_t_x_inner = iter_trj_inner->second[1](0) - (iter_trj_inner->second[0](0));
-//  Real v_t_y_inner = iter_trj_inner->second[1](1) - (iter_trj_inner->second[0](1));
   Eigen::VectorXd outer_target_at_last_time = outer_trj_it->second[outer_trj_it->second.size() - 1];
-  Eigen::VectorXd inner_target_at_first_time = inner_trj_it->second[inner_trj_it->second.size() - 1];
+  Eigen::VectorXd
+      inner_target_at_first_time = inner_trj_it->second[1]; // note: velocity must be taken from the 1st entry, not 0th
 
-//  std::vector<std::vector<Real>> outer_vect;
-//  std::vector<std::vector<Real>> inner_vect;
-  // continuation of outer trajectory
-//  Real continued_trj_x = iter_trj_outer->second[iter_trj_outer->second.size() - 1](0);
-//  Real continued_trj_y = iter_trj_outer->second[iter_trj_outer->second.size() - 1](1);
+  // predict forward outer trajectory
   std::vector<Eigen::VectorXd> augmented_outer_trajectory;
   Eigen::VectorXd augmented_outer_position = outer_target_at_last_time;
   augmented_outer_trajectory.push_back(augmented_outer_position);
   for (int continuation_time = 1; continuation_time <= s; ++continuation_time)
   {
-//    continued_trj_x += v_t_x_outer;
-//    continued_trj_y += v_t_y_outer;
     augmented_outer_position.head(2) += outer_target_at_last_time.segment(2, 2);
-
-//    std::vector<Real> continued_trj{continued_trj_x, continued_trj_y};
-//    outer_vect.push_back(continued_trj);
     augmented_outer_trajectory.push_back(augmented_outer_position);
   }
 
   // building beginning of inner trajectory
-//  continued_trj_x = iter_trj_inner->second[0](0);
-//  continued_trj_y = iter_trj_inner->second[0](1);
+  // predict backward inner trajectory
   std::vector<Eigen::VectorXd> augmented_inner_trajectory;
   Eigen::VectorXd augmented_inner_position = inner_target_at_first_time;
   augmented_inner_trajectory.push_back(augmented_inner_position);
   for (int continuation_time = 1; continuation_time <= s; ++continuation_time)
   {
-//    continued_trj_x -= v_t_x_inner;
-//    continued_trj_y -= v_t_y_inner;
-    augmented_inner_position.head(2) += inner_target_at_first_time.segment(2, 2);
-
-//    std::vector<Real> continued_trj{continued_trj_x, continued_trj_y};
-//    inner_vect.push_back(continued_trj);
+    augmented_inner_position.head(2) -= inner_target_at_first_time.segment(2, 2);
     augmented_inner_trajectory.push_back(augmented_inner_position);
   }
-//  std::reverse(inner_vect.begin(), inner_vect.end());
   std::reverse(augmented_inner_trajectory.begin(), augmented_inner_trajectory.end());
 
   Real cost = 0;
   for (int continuation_time = 0; continuation_time <= s; ++continuation_time)
   {
-//    cost += std::sqrt(std::pow((outer_vect[continuation_time][0] - inner_vect[continuation_time][0]), 2) +
-//        std::pow((outer_vect[continuation_time][1] - inner_vect[continuation_time][1]), 2));
     cost += (augmented_outer_trajectory[continuation_time].head(2)
         - augmented_inner_trajectory[continuation_time].head(2)).norm();
   }
-  return cost / (s + 1);// * costs_order_of_magnitude_;
+  return cost / (s + 1);
 }
 
 /**
@@ -783,22 +336,403 @@ Real TrajectoryLinker::ComputeCostMatrixEntryWithoutIntersection(
 Real TrajectoryLinker::ComputeCostMatrixEntryWithIntersection(
     const std::map<int, std::vector<Eigen::VectorXd>>::iterator &outer_trj_it,
     const std::map<int, std::vector<Eigen::VectorXd>>::iterator &inner_trj_it,
-    int outer_trj_end_time,
-    int inner_trj_begin_time)
+    int s)
 {
   Real cost = 0;
-  int s = outer_trj_end_time - inner_trj_begin_time;
-
   for (int intersection_time = 0; intersection_time <= s; ++intersection_time)
   {
-//    cost +=
-//        std::sqrt(std::pow((outer_trj_it->second[outer_trj_it->second.size() - 1 - s + intersection_time](0)
-//            - inner_trj_it->second[intersection_time](0)), 2) +
-//            std::pow((outer_trj_it->second[outer_trj_it->second.size() - 1 - s + intersection_time](1)
-//                - inner_trj_it->second[intersection_time](1)), 2));
     Eigen::VectorXd outer_target = outer_trj_it->second[outer_trj_it->second.size() - 1 - s + intersection_time];
     Eigen::VectorXd inner_target = inner_trj_it->second[intersection_time];
     cost += (outer_target.head(2) - inner_target.head(2)).norm();
   }
-  return cost / (s + 1);// * costs_order_of_magnitude_;
+  return cost / (s + 1);
+}
+
+void TrajectoryLinker::UnassignUnrealisticAssociations(std::vector<int> &assignments, const std::vector<CostInt> &costs)
+{
+  for (int i = 0; i < costs.size(); ++i)
+  {
+    if (costs[i] > parameter_handler_.GetTrackLinkingDataAssociationCost())
+    {
+      assignments[i] = -1;
+    }
+  }
+}
+
+void TrajectoryLinker::ConnectBrokenTrajectories(std::map<int, std::vector<Eigen::VectorXd>> &trajectories,
+                                                 std::map<int, std::vector<int>> &timestamps,
+                                                 std::vector<int> &target_indexes,
+                                                 std::vector<int> &assignments,
+                                                 std::vector<CostInt> &costs)
+{
+  std::cout << "track linking | unification of tracklings" << std::endl;
+
+  for (int i = 0; i < assignments.size(); ++i)
+  {
+    if (assignments[i] != -1)
+    {
+      int target_idx = target_indexes[i];
+      int assignment_idx = assignments[i];
+
+      int target_begin_time = timestamps[target_idx][0];
+      int target_end_time = timestamps[target_idx][timestamps[target_idx].size() - 1];
+      int assignment_begin_time = timestamps[assignment_idx][0];
+      int assignment_end_time = timestamps[assignment_idx][timestamps[assignment_idx].size() - 1];
+
+      std::vector<Eigen::VectorXd> unified_trajectory;
+      std::vector<int> unified_timestamp;
+      // trajectories do not intersect: target, assignment (in time)
+      if ((assignment_begin_time - target_end_time >= 1)
+          && (assignment_begin_time - target_end_time <= parameter_handler_.GetTrackLinkingLagTime()))
+      {
+        int s = assignment_begin_time - target_end_time;
+        UnifyNonintersectingTrajectories(trajectories[target_idx],
+                                         trajectories[assignment_idx],
+                                         timestamps[target_idx],
+                                         timestamps[assignment_idx],
+                                         s,
+                                         unified_trajectory,
+                                         unified_timestamp);
+      }
+      // trajectories do not intersect: assignment, target (in time)
+      if ((target_begin_time - assignment_end_time >= 1)
+          && (target_begin_time - assignment_end_time <= parameter_handler_.GetTrackLinkingLagTime()))
+      {
+        int s = target_begin_time - assignment_end_time;
+        UnifyNonintersectingTrajectories(trajectories[assignment_idx],
+                                         trajectories[target_idx],
+                                         timestamps[assignment_idx],
+                                         timestamps[target_idx],
+                                         s,
+                                         unified_trajectory,
+                                         unified_timestamp);
+      }
+      // trajectories intersect: target, assignment (in time)
+      if ((target_end_time - assignment_begin_time >= 0)
+          && (target_end_time - assignment_begin_time <= parameter_handler_.GetTrackLinkingIntersectionTime()))
+      {
+        int s = target_end_time - assignment_begin_time;
+        UnifyIntersectingTrajectories(trajectories[target_idx],
+                                      trajectories[assignment_idx],
+                                      timestamps[target_idx],
+                                      timestamps[assignment_idx],
+                                      s,
+                                      unified_trajectory,
+                                      unified_timestamp);
+      }
+      // trajectories intersect: assignment, target (in time)
+      if ((assignment_end_time - target_begin_time >= 0)
+          && (assignment_end_time - target_begin_time <= parameter_handler_.GetTrackLinkingIntersectionTime()))
+      {
+        int s = assignment_end_time - target_begin_time;
+        UnifyIntersectingTrajectories(trajectories[assignment_idx],
+                                      trajectories[target_idx],
+                                      timestamps[assignment_idx],
+                                      timestamps[target_idx],
+                                      s,
+                                      unified_trajectory,
+                                      unified_timestamp);
+      }
+
+      trajectories.erase(target_idx);
+      trajectories.erase(assignment_idx);
+      timestamps.erase(target_idx);
+      timestamps.erase(assignment_idx);
+      trajectories[target_idx] = unified_trajectory;
+      timestamps[target_idx] = unified_timestamp;
+      // relabel target indexes so at to incorporate the unification
+      std::replace(target_indexes.begin(), target_indexes.end(), assignment_idx, target_idx);
+    }
+  } // i
+}
+
+/**
+ * outer, inner (in time)
+ * @param outer_trajectory
+ * @param inner_trajectory
+ * @param outer_timestamps
+ * @param inner_timestamps
+ * @param s
+ * @param unified_trajectory
+ */
+void TrajectoryLinker::UnifyNonintersectingTrajectories(const std::vector<Eigen::VectorXd> &outer_trajectory,
+                                                        const std::vector<Eigen::VectorXd> &inner_trajectory,
+                                                        const std::vector<int> &outer_timestamps,
+                                                        const std::vector<int> &inner_timestamps,
+                                                        int s,
+                                                        std::vector<Eigen::VectorXd> &unified_trajectory,
+                                                        std::vector<int> &unified_timestamp)
+{
+  Eigen::VectorXd outer_target_at_last_time = outer_trajectory[outer_trajectory.size() - 1];
+  Eigen::VectorXd
+      inner_target_at_first_time = inner_trajectory[1]; // note: velocity must be taken from the 1st entry, not 0th
+
+  // predict forward outer trajectory
+  std::vector<Eigen::VectorXd> augmented_outer_trajectory;
+  Eigen::VectorXd augmented_outer_position = outer_target_at_last_time;
+  augmented_outer_trajectory.push_back(augmented_outer_position);
+  for (int continuation_time = 1; continuation_time <= s; ++continuation_time)
+  {
+    augmented_outer_position.head(2) += outer_target_at_last_time.segment(2, 2);
+    augmented_outer_trajectory.push_back(augmented_outer_position);
+  }
+
+  // predict backward inner trajectory
+  std::vector<Eigen::VectorXd> augmented_inner_trajectory;
+  Eigen::VectorXd augmented_inner_position = inner_target_at_first_time;
+  augmented_inner_trajectory.push_back(augmented_inner_position);
+  for (int continuation_time = 1; continuation_time <= s; ++continuation_time)
+  {
+    augmented_inner_position.head(2) -= inner_target_at_first_time.segment(2, 2);
+    augmented_inner_trajectory.push_back(augmented_inner_position);
+  }
+  std::reverse(augmented_inner_trajectory.begin(), augmented_inner_trajectory.end());
+
+  // combine the original and augmented trajectories
+  for (int outer_trj_time_idx = 0; outer_trj_time_idx < outer_trajectory.size() - 1; ++outer_trj_time_idx)
+  {
+    unified_trajectory.push_back(outer_trajectory[outer_trj_time_idx]);
+  }
+  for (int unification_time_idx = 0; unification_time_idx <= s; ++unification_time_idx)
+  {
+    unified_trajectory.push_back(
+        (augmented_outer_trajectory[unification_time_idx] + augmented_inner_trajectory[unification_time_idx]) / 2.0);
+  }
+  for (int inner_trj_time_idx = 1; inner_trj_time_idx < inner_trajectory.size(); ++inner_trj_time_idx)
+  {
+    unified_trajectory.push_back(inner_trajectory[inner_trj_time_idx]);
+  }
+  unified_timestamp.resize(unified_trajectory.size());
+  std::iota(unified_timestamp.begin(), unified_timestamp.end(), outer_timestamps[0]); // TODO: check the result
+}
+
+/**
+ * outer, inner (in time)
+ * @param outer_trajectory
+ * @param inner_trajectory
+ * @param outer_timestamps
+ * @param inner_timestamps
+ * @param s
+ * @param unified_trajectory
+ * @param unified_timestamp
+ */
+void TrajectoryLinker::UnifyIntersectingTrajectories(const std::vector<Eigen::VectorXd> &outer_trajectory,
+                                                     const std::vector<Eigen::VectorXd> &inner_trajectory,
+                                                     const std::vector<int> &outer_timestamps,
+                                                     const std::vector<int> &inner_timestamps,
+                                                     int s,
+                                                     std::vector<Eigen::VectorXd> &unified_trajectory,
+                                                     std::vector<int> &unified_timestamp)
+{
+  // combine the original and augmented trajectories
+  for (int outer_trj_time_idx = 0; outer_trj_time_idx < outer_trajectory.size() - 1 - s; ++outer_trj_time_idx)
+  {
+    unified_trajectory.push_back(outer_trajectory[outer_trj_time_idx]);
+  }
+  for (int unification_time_idx = 0; unification_time_idx <= s; ++unification_time_idx)
+  {
+    unified_trajectory.push_back((outer_trajectory[outer_trajectory.size() - 1 - s + unification_time_idx]
+        + inner_trajectory[unification_time_idx]) / 2.0);
+  }
+  for (int inner_trj_time_idx = s + 1; inner_trj_time_idx < inner_trajectory.size(); ++inner_trj_time_idx)
+  {
+    unified_trajectory.push_back(inner_trajectory[inner_trj_time_idx]);
+  }
+  unified_timestamp.resize(unified_trajectory.size());
+  std::iota(unified_timestamp.begin(), unified_timestamp.end(), outer_timestamps[0]);
+}
+
+void TrajectoryLinker::DeleteShortTrajectories(std::map<int, std::vector<Eigen::VectorXd>> &trajectories,
+                                               std::map<int, std::vector<int>> &timestamps)
+{
+  int num_deleted_trajectories = 0;
+  for (std::map<int, std::vector<Eigen::VectorXd>>::iterator trj_it = trajectories.begin();
+       trj_it != trajectories.end();)
+  {
+    if (trj_it->second.size() <= parameter_handler_.GetMinTrajectoryLength())
+    {
+      timestamps.erase(trj_it->first);
+      trj_it = trajectories.erase(trj_it);
+      ++num_deleted_trajectories;
+    } else
+    {
+      ++trj_it;
+    }
+  }
+  std::cout << "track linking | short trajectories deleted: " << num_deleted_trajectories << std::endl;
+}
+
+void TrajectoryLinker::ImposeSuccessiveLabeling(std::map<int, std::vector<Eigen::VectorXd>> &trajectories,
+                                                std::map<int, std::vector<int>> &timestamps)
+{
+  int label = 0;
+  for (std::map<int, std::vector<Eigen::VectorXd>>::iterator trj_it = trajectories.begin();
+       trj_it != trajectories.end(); ++label)
+  {
+    if (trj_it->first != label)
+    {
+      trajectories[label] = trajectories[trj_it->first];
+      timestamps[label] = timestamps[trj_it->first];
+      timestamps.erase(trj_it->first);
+      trj_it = trajectories.erase(trj_it);
+    } else
+    {
+      ++trj_it;
+    }
+  }
+}
+
+void TrajectoryLinker::SaveTrajectories(std::ofstream &file,
+                                        const std::map<int, std::vector<Eigen::VectorXd>> &trajectories,
+                                        const std::map<int, std::vector<int>> &timestamps)
+{
+  for (int img_idx = parameter_handler_.GetFirstImage(); img_idx <= parameter_handler_.GetLastImage(); ++img_idx)
+  {
+    // go through all trajectories in order to calculate the number of them per image
+    int number_of_targets_per_image = 0;
+    for (std::map<int, std::vector<int>>::const_iterator cit = timestamps.begin(); cit != timestamps.end(); ++cit)
+    {
+      if (std::find(cit->second.begin(), cit->second.end(), img_idx) != cit->second.end())
+      {
+        ++number_of_targets_per_image;
+      }
+    }
+
+    file << img_idx << " " << number_of_targets_per_image << " ";
+    for (std::map<int, std::vector<int>>::const_iterator cit = timestamps.begin(); cit != timestamps.end(); ++cit)
+    {
+      std::vector<int>::const_iterator trj_it = std::find(cit->second.begin(), cit->second.end(), img_idx);
+      if (trj_it != cit->second.end())
+      {
+        int trj_idx = std::distance(cit->second.begin(), trj_it);
+        Eigen::VectorXd target = trajectories.at(cit->first)[trj_idx];
+        file << cit->first << " "
+             << target(0) << " " << target(1) << " " << target(2) << " " << target(3) << " "
+             << target(4) << " " << target(5) << " " << target(6) << " " << target(7) << " ";
+      }
+    }
+    file << std::endl;
+  }
+}
+
+void TrajectoryLinker::SaveTrajectoriesMatlab(std::ofstream &file,
+                                              const std::map<int, std::vector<Eigen::VectorXd>> &trajectories,
+                                              const std::map<int, std::vector<int>> &timestamps)
+{
+  for (std::map<int, std::vector<Eigen::VectorXd>>::const_iterator cit = trajectories.begin();
+       cit != trajectories.end();
+       ++cit)
+  {
+    int trajectory_label = cit->first;
+    for (int trj_idx = 0; trj_idx < cit->second.size(); ++trj_idx)
+    {
+      Eigen::VectorXd target(cit->second[trj_idx]);
+      file << timestamps.at(trajectory_label)[trj_idx] << " "
+           << trajectory_label << " "
+           << target(0) << " " << target(1) << " " << target(2) << " " << target(3) << " "
+           << target(4) << " " << target(5) << " " << target(6) << " " << target(7)
+           << std::endl;
+    }
+  } // cit
+}
+
+void TrajectoryLinker::SaveImagesWithVectors(const std::map<int, std::vector<Eigen::VectorXd>> &trajectories,
+                                             const std::map<int, std::vector<int>> &timestamps)
+{
+  cv::Scalar text_color(255, 127, 0);
+  cv::Scalar velocity_color(0, 255, 0);
+  cv::Scalar orientation_color(255, 0, 0);
+
+  for (int image_idx = parameter_handler_.GetFirstImage(); image_idx <= parameter_handler_.GetLastImage(); ++image_idx)
+  {
+    cv::Mat image;
+    image = image_processing_engine_.GetSourceImage(image_idx);
+
+    for (std::map<int, std::vector<int>>::const_iterator cit = timestamps.begin(); cit != timestamps.end(); ++cit)
+    {
+      std::vector<int>::const_iterator trj_it = std::find(cit->second.begin(), cit->second.end(), image_idx);
+      if (trj_it != cit->second.end())
+      {
+        int trj_idx = std::distance(cit->second.begin(), trj_it);
+        Eigen::VectorXd target = trajectories.at(cit->first)[trj_idx];
+
+        cv::Point2f center = cv::Point2f(target(0), target(1));
+        cv::putText(image, std::to_string(cit->first), center, cv::FONT_HERSHEY_DUPLEX, 0.4, text_color);
+        Real length = std::max(target(6), target(7));
+        cv::line(image,
+                 center,
+                 center + cv::Point2f(target(2), target(3)),
+                 velocity_color);
+        cv::line(image,
+                 center,
+                 center + cv::Point2f(std::cosf(target(5)), std::sinf(target(5))) * length / 2.0,
+                 orientation_color);
+      }
+    } // cit
+
+    std::ostringstream output_image_name_buf;
+    output_image_name_buf << parameter_handler_.GetInputFolder() << parameter_handler_.GetTrackLinkingSubfolder()
+                          << parameter_handler_.GetFileName0() << std::setfill('0') << std::setw(9) << image_idx
+                          << parameter_handler_.GetFileName1();
+    std::string output_image_name = output_image_name_buf.str();
+    cv::imwrite(output_image_name, image);
+  } // image_idx
+}
+
+void TrajectoryLinker::SaveImagesWithRectangles(const std::map<int, std::vector<Eigen::VectorXd>> &trajectories,
+                                                const std::map<int, std::vector<int>> &timestamps)
+{
+  for (int image_idx = parameter_handler_.GetFirstImage(); image_idx <= parameter_handler_.GetLastImage(); ++image_idx)
+  {
+    cv::Mat image;
+    image_processing_engine_.ComposeImageForFilterOutput(image_idx, image);
+
+    for (std::map<int, std::vector<int>>::const_iterator cit = timestamps.begin(); cit != timestamps.end(); ++cit)
+    {
+      std::vector<int>::const_iterator trj_it = std::find(cit->second.begin(), cit->second.end(), image_idx);
+      if (trj_it != cit->second.end())
+      {
+        int trj_idx = std::distance(cit->second.begin(), trj_it);
+        Eigen::VectorXd target = trajectories.at(cit->first)[trj_idx];
+
+        cv::Scalar color;
+        if (targets_colors_.find(cit->first) != targets_colors_.end())
+        {
+          color = targets_colors_[cit->first];
+        } else
+        {
+          color = cv::Scalar(rng_.uniform(0, 255), rng_.uniform(0, 255), rng_.uniform(0, 255));
+          targets_colors_[cit->first] = color;
+        }
+
+        cv::Point2f center(target(0), target(1));
+        Real length = std::max(target(6), target(7));
+        Real width = std::min(target(6), target(7));
+        cv::Point2f lengthwise_vec = cv::Point2f(std::cosf(target(5)), std::sinf(target(5)));
+        cv::Point2f widthwise_vec = RotatePoint(lengthwise_vec, M_PI / 2.0);
+        lengthwise_vec *= length / 2.0;
+        widthwise_vec *= width / 2.0;
+        cv::line(image, center + lengthwise_vec + widthwise_vec, center + lengthwise_vec - widthwise_vec, color, 2, 8);
+        cv::line(image, center + lengthwise_vec - widthwise_vec, center - lengthwise_vec - widthwise_vec, color, 2, 8);
+        cv::line(image, center - lengthwise_vec - widthwise_vec, center - lengthwise_vec + widthwise_vec, color, 2, 8);
+        cv::line(image, center - lengthwise_vec + widthwise_vec, center + lengthwise_vec + widthwise_vec, color, 2, 8);
+      }
+    } // cit
+
+    std::ostringstream output_image_name_buf;
+    output_image_name_buf << parameter_handler_.GetInputFolder() << parameter_handler_.GetTrackLinkingSubfolder()
+                          << parameter_handler_.GetFileName0() << std::setfill('0') << std::setw(9) << image_idx
+                          << parameter_handler_.GetFileName1();
+    std::string output_image_name = output_image_name_buf.str();
+    cv::imwrite(output_image_name, image);
+  } // image_idx
+}
+
+cv::Point2f TrajectoryLinker::RotatePoint(const cv::Point2f &p, float rad)
+{
+  const float x = std::cos(rad) * p.x - std::sin(rad) * p.y;
+  const float y = std::sin(rad) * p.x + std::cos(rad) * p.y;
+
+  const cv::Point2f rot_p(x, y);
+  return rot_p;
 }

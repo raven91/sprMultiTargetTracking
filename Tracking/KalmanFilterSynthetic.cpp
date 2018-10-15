@@ -128,9 +128,9 @@ void KalmanFilterSynthetic::PerformEstimation(int image_idx,
   A(0, 2) = A(1, 3) = dt;
   H(0, 0) = H(1, 1) = 1.0;
 
-  W(0, 0) = W(1, 1) = dt * dt * dt * dt / 4.0f;
+  W(0, 0) = W(1, 1) = dt * dt * dt * dt / 4.0;
   W(2, 2) = W(3, 3) = dt * dt;
-  W(0, 2) = W(1, 3) = W(2, 0) = W(3, 1) = dt * dt * dt / 2.0f;
+  W(0, 2) = W(1, 3) = W(2, 0) = W(3, 1) = dt * dt * dt / 2.0;
   Q(0, 0) = Q(1, 1) = dt;
 
   P_estimate = W;
