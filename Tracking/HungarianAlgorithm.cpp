@@ -23,10 +23,7 @@ HungarianAlgorithm::HungarianAlgorithm(int n, std::vector<std::vector<CostInt>> 
   max_match_ = 0;
 }
 
-HungarianAlgorithm::~HungarianAlgorithm()
-{
-
-}
+HungarianAlgorithm::~HungarianAlgorithm() = default;
 
 void HungarianAlgorithm::Start(std::vector<int> &assignment, std::vector<CostInt> &cost)
 {

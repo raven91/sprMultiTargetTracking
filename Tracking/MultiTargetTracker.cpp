@@ -136,6 +136,8 @@ void MultitargetTracker::StartImageProcessingOrFilteringForMultipleExperiments(c
                   break;
                 case '3':StartTrackLinking(current_dir.string());
                   break;
+                default:
+                  ;
               }
             }
           } // iter

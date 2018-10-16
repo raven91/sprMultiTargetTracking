@@ -74,10 +74,7 @@ ParameterHandlerExperimental::ParameterHandlerExperimental(const std::string &fi
   min_trajectory_length_ = (int) parameters_dictionary["min_trajectory_length"];
 }
 
-ParameterHandlerExperimental::~ParameterHandlerExperimental()
-{
-
-}
+ParameterHandlerExperimental::~ParameterHandlerExperimental() = default;
 
 const std::string &ParameterHandlerExperimental::GetInputFolder()
 {

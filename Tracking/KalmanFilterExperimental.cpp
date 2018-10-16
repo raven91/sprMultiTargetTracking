@@ -93,7 +93,7 @@ void KalmanFilterExperimental::InitializeTargets(std::map<int, Eigen::VectorXd> 
 
   int last_index = 0;
   Eigen::VectorXd new_target(kNumOfExtractedFeatures);
-  for (int b = 0; b < detections.size(); ++b)
+  for (const Eigen::VectorXd &detection : detections)
   {
     if (targets.empty())
     {
@@ -103,7 +103,7 @@ void KalmanFilterExperimental::InitializeTargets(std::map<int, Eigen::VectorXd> 
       last_index = std::prev(targets.end())->first;
 //			last_index = targets.rbegin()->first;
     }
-    new_target = detections[b];
+    new_target = detection;
     targets[++last_index] = new_target;
   }
   max_target_index_ = last_index;
@@ -177,17 +177,16 @@ void KalmanFilterExperimental::PerformEstimation(int image_idx,
   std::cout << "kalman filter: image#" << image_idx << std::endl;
 
   int n_max_dim = 0; // max size between targets and detections
-  int number_of_targets_before_association = (int) targets.size();
 
   ComputePriorEstimate(targets);
   ComputeKalmanGainMatrix();
 
-  if (detections.size() > 0)
+  if (!(detections.empty()))
   {
     n_max_dim = (int) std::max(targets.size(), detections.size());
     std::vector<int> target_indexes;
-    std::vector<int> assignments(n_max_dim, -1);
-    std::vector<CostInt> costs(n_max_dim);
+    std::vector<int> assignments((unsigned long) n_max_dim, -1);
+    std::vector<CostInt> costs((unsigned long) n_max_dim);
 
     PerformDataAssociation(targets, detections, n_max_dim, target_indexes, assignments, costs);
     UnassignUnrealisticTargets(targets, detections, n_max_dim, assignments, costs, target_indexes);
@@ -197,6 +196,7 @@ void KalmanFilterExperimental::PerformEstimation(int image_idx,
     AddNewTargets(targets, detections, assignments);
   } else // detections.size() == 0
   {
+    std::cout << "error in detector: no detections found" << std::endl;
     MarkAllTargetsAsUnmatched(targets);
   }
   // if the target has been lost for too long -> remove it
@@ -214,11 +214,11 @@ void KalmanFilterExperimental::PerformEstimation(int image_idx,
 void KalmanFilterExperimental::ComputePriorEstimate(std::map<int, Eigen::VectorXd> &targets)
 {
   Eigen::VectorXd x_i_estimate(kNumOfStateVars);
-  for (std::map<int, Eigen::VectorXd>::iterator it = targets.begin(); it != targets.end(); ++it)
+  for (std::pair<const int, Eigen::VectorXd> &target : targets)
   {
-    x_i_estimate = (it->second).head(kNumOfStateVars);
+    x_i_estimate = (target.second).head(kNumOfStateVars);
     x_i_estimate = A_ * x_i_estimate;
-    (it->second).head(kNumOfStateVars) = x_i_estimate;
+    (target.second).head(kNumOfStateVars) = x_i_estimate;
   }
   P_ = A_ * P_ * A_.transpose() + W_;
 }
@@ -235,7 +235,8 @@ void KalmanFilterExperimental::PerformDataAssociation(const std::map<int, Eigen:
                                                       std::vector<int> &assignments,
                                                       std::vector<CostInt> &costs)
 {
-  std::vector<std::vector<CostInt>> cost_matrix(n_max_dim, std::vector<CostInt>(n_max_dim, 0));
+  std::vector<std::vector<CostInt>>
+      cost_matrix((unsigned long) n_max_dim, std::vector<CostInt>((unsigned long) n_max_dim, 0));
   CostInt max_cost = InitializeCostMatrix(targets, detections, cost_matrix, target_indexes);
   HungarianAlgorithm hungarian_algorithm(n_max_dim, cost_matrix);
   hungarian_algorithm.Start(assignments, costs);
@@ -261,8 +262,8 @@ CostInt KalmanFilterExperimental::InitializeCostMatrix(const std::map<int, Eigen
   int row = 0;
   Real d_x = 0.0, d_y = 0.0;
   Real dist = 0.0;
-  Real max_dist = Real(std::sqrt(parameter_handler_.GetSubimageXSize() * parameter_handler_.GetSubimageXSize()
-                                     + parameter_handler_.GetSubimageYSize() * parameter_handler_.GetSubimageYSize()));
+  Real max_dist = std::sqrt(parameter_handler_.GetSubimageXSize() * parameter_handler_.GetSubimageXSize()
+                                + parameter_handler_.GetSubimageYSize() * parameter_handler_.GetSubimageYSize());
 //  Real area_increase = 0.0;
   // the trajectories are not guaranteed to have successive labels
   // row and column indexes are introduced to account for that
@@ -465,9 +466,9 @@ void KalmanFilterExperimental::CorrectForOrientationUniqueness(std::map<int, Eig
   Eigen::VectorXd x_i(kNumOfExtractedFeatures);
   Eigen::Vector2d velocity_i;
   Eigen::Vector2d orientation_i;
-  for (std::map<int, Eigen::VectorXd>::iterator it = targets.begin(); it != targets.end(); ++it)
+  for (std::pair<const int, Eigen::VectorXd> &target : targets)
   {
-    x_i = it->second;
+    x_i = target.second;
     velocity_i = x_i.segment(2, 2);
     orientation_i << std::cosf(x_i[5]), std::sinf(x_i[5]);
 
@@ -475,12 +476,12 @@ void KalmanFilterExperimental::CorrectForOrientationUniqueness(std::map<int, Eig
     // we assume the angle difference between the orientation and velocity is < |\pi/2|
     if (velocity_i.dot(orientation_i) < 0.0)
     {
-      (it->second)[5] = WrappingModulo(x_i[5] + M_PI, 2.0 * M_PI);
+      (target.second)[5] = WrappingModulo(x_i[5] + M_PI, 2.0 * M_PI);
     } else
     {
-      (it->second)[5] = WrappingModulo(x_i[5], 2.0 * M_PI);
+      (target.second)[5] = WrappingModulo(x_i[5], 2.0 * M_PI);
     }
-    (it->second)[5] = ConstrainAngleCentered((it->second)[5]);
+    (target.second)[5] = ConstrainAngleCentered((target.second)[5]);
   }
 }
 
@@ -490,10 +491,10 @@ void KalmanFilterExperimental::SaveTargets(std::ofstream &file,
 {
   Eigen::VectorXd x_i;
   file << image_idx << " " << targets.size() << " ";
-  for (std::map<int, Eigen::VectorXd>::const_iterator it = targets.begin(); it != targets.end(); ++it)
+  for (const std::pair<const int, Eigen::VectorXd> &target : targets)
   {
-    x_i = it->second;
-    file << it->first << " " << x_i(0) << " " << x_i(1) << " " << x_i(2) << " " << x_i(3) << " " << x_i(4) << " "
+    x_i = target.second;
+    file << target.first << " " << x_i(0) << " " << x_i(1) << " " << x_i(2) << " " << x_i(3) << " " << x_i(4) << " "
          << x_i(5) << " " << x_i(6) << " " << x_i(7) << " ";
   }
   file << std::endl;
@@ -504,10 +505,10 @@ void KalmanFilterExperimental::SaveTargetsMatlab(std::ofstream &file,
                                                  const std::map<int, Eigen::VectorXd> &targets)
 {
   Eigen::VectorXd x_i;
-  for (std::map<int, Eigen::VectorXd>::const_iterator it = targets.begin(); it != targets.end(); ++it)
+  for (const std::pair<const int, Eigen::VectorXd> &target : targets)
   {
-    x_i = it->second;
-    file << image_idx << " " << it->first << " " << x_i(0) << " " << x_i(1) << " " << x_i(2) << " " << x_i(3) << " "
+    x_i = target.second;
+    file << image_idx << " " << target.first << " " << x_i(0) << " " << x_i(1) << " " << x_i(2) << " " << x_i(3) << " "
          << x_i(4) << " " << x_i(5) << " " << x_i(6) << " " << x_i(7) << std::endl;
   }
 }
@@ -521,12 +522,12 @@ void KalmanFilterExperimental::SaveImagesWithVectors(int image_idx, const std::m
   cv::Scalar velocity_color(0, 255, 0);
   cv::Scalar orientation_color(255, 0, 0);
 
-  for (std::map<int, Eigen::VectorXd>::const_iterator cit = targets.begin(); cit != targets.end(); ++cit)
+  for (const std::pair<const int, Eigen::VectorXd> &target : targets)
   {
-    Eigen::VectorXd x_i = cit->second;
+    Eigen::VectorXd x_i = target.second;
     cv::Point2f center = cv::Point2f(x_i(0), x_i(1));
 //    cv::circle(image, center, 3, text_color, -1, 8);
-    cv::putText(image, std::to_string(cit->first), center, cv::FONT_HERSHEY_DUPLEX, 0.4, text_color);
+    cv::putText(image, std::to_string(target.first), center, cv::FONT_HERSHEY_DUPLEX, 0.4, text_color);
 //		cv::Point2f pt = cv::Point2f(std::cosf(x_i(5)), std::sinf(x_i(5)));
     Real length = std::max(x_i(6), x_i(7));
     cv::line(image,
@@ -539,7 +540,6 @@ void KalmanFilterExperimental::SaveImagesWithVectors(int image_idx, const std::m
              orientation_color);
 //		std::cout << "(" << center.x << "," << center.y << ") -> (" << center.x + std::cosf(x_i(5)) * x_i(4) / 10.0f << "," << center.y + std::sinf(x_i(5)) * x_i(4) / 10.0f << ")" << std::endl;
 
-  // TODO: move to a separate function
 /*    Eigen::SelfAdjointEigenSolver<Eigen::Matrix<float, kNumOfStateVars, kNumOfStateVars>> s(P_);
     Eigen::Matrix<std::complex<float>, kNumOfStateVars, 1> eigenvalues = s.eigenvalues();
     Eigen::Matrix<std::complex<float>, kNumOfStateVars, kNumOfStateVars> eigenvectors = s.eigenvectors();
@@ -567,24 +567,23 @@ void KalmanFilterExperimental::SaveImagesWithRectangles(int image_idx, const std
   cv::Mat image;
   image_processing_engine_.ComposeImageForFilterOutput(image_idx, image);
 
-  for (std::map<int, Eigen::VectorXd>::const_iterator cit = targets.begin(); cit != targets.end(); ++cit)
+  for (const std::pair<const int, Eigen::VectorXd> &target : targets)
   {
-    Eigen::VectorXd x_i = cit->second;
     cv::Scalar color;
-    if (targets_colors_.find(cit->first) != targets_colors_.end())
+    if (targets_colors_.find(target.first) != targets_colors_.end())
     {
-      color = targets_colors_[cit->first];
+      color = targets_colors_[target.first];
     } else
     {
       color = cv::Scalar(rng_.uniform(0, 255), rng_.uniform(0, 255), rng_.uniform(0, 255));
-      targets_colors_[cit->first] = color;
+      targets_colors_[target.first] = color;
     }
 
-    cv::Point2f center(x_i(0), x_i(1));
-    Real length = std::max(x_i(6), x_i(7));
-    Real width = std::min(x_i(6), x_i(7));
-    cv::Point2f lengthwise_vec = cv::Point2f(std::cosf(x_i(5)), std::sinf(x_i(5)));
-    cv::Point2f widthwise_vec = RotatePoint(lengthwise_vec, M_PI / 2.0);
+    cv::Point2f center(target.second(0), target.second(1));
+    Real length = std::max(target.second(6), target.second(7));
+    Real width = std::min(target.second(6), target.second(7));
+    cv::Point2f lengthwise_vec = cv::Point2f(std::cosf(target.second(5)), std::sinf(target.second(5)));
+    cv::Point2f widthwise_vec = RotatePoint(lengthwise_vec, float(M_PI / 2.0));
     lengthwise_vec *= length / 2.0;
     widthwise_vec *= width / 2.0;
     cv::line(image, center + lengthwise_vec + widthwise_vec, center + lengthwise_vec - widthwise_vec, color, 2, 8);

@@ -15,10 +15,7 @@ PeriodicBoundaryConditionsConfiguration::PeriodicBoundaryConditionsConfiguration
 
 }
 
-PeriodicBoundaryConditionsConfiguration::~PeriodicBoundaryConditionsConfiguration()
-{
-
-}
+PeriodicBoundaryConditionsConfiguration::~PeriodicBoundaryConditionsConfiguration() = default;
 
 void PeriodicBoundaryConditionsConfiguration::ClassAEffectiveParticleDistance(Real x_i,
                                                                               Real y_i,
@@ -76,9 +73,9 @@ void PeriodicBoundaryConditionsConfiguration::ApplyPeriodicBoundaryConditions(Re
 void PeriodicBoundaryConditionsConfiguration::ApplyPeriodicBoundaryConditions(std::map<int, Eigen::VectorXd> &targets)
 {
 #pragma unroll
-  for (std::map<int, Eigen::VectorXd>::iterator it = targets.begin(); it != targets.end(); ++it)
+  for (std::pair<const int, Eigen::VectorXd> &target : targets)
   {
-    (it->second)[0] -= std::floor((it->second[0]) * x_rsize_) * x_size_;
-    (it->second)[1] -= std::floor((it->second[1]) * y_rsize_) * y_size_;
+    (target.second)[0] -= std::floor((target.second[0]) * x_rsize_) * x_size_;
+    (target.second)[1] -= std::floor((target.second[1]) * y_rsize_) * y_size_;
   }
 }

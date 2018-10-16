@@ -6,20 +6,17 @@
 
 #include <sstream>
 
-TrackingStatistics::TrackingStatistics():
-number_of_suspended_targets_(0),
-number_of_missed_targets_(0),
-number_of_deleted_targets_(0),
-number_of_new_targets_(0),
-number_of_time_points_(0)
+TrackingStatistics::TrackingStatistics() :
+    number_of_suspended_targets_(0),
+    number_of_missed_targets_(0),
+    number_of_deleted_targets_(0),
+    number_of_new_targets_(0),
+    number_of_time_points_(0)
 {
 
 }
 
-TrackingStatistics::~TrackingStatistics()
-{
-
-}
+TrackingStatistics::~TrackingStatistics() = default;
 
 int TrackingStatistics::GetNumberOfSuspendedTargets()
 {

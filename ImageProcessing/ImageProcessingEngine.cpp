@@ -84,7 +84,7 @@ void ImageProcessingEngine::RetrieveSourceImage(int image)
   std::string image_name = image_name_buf.str();
 
   source_image_ = cv::imread(image_name, cv::IMREAD_COLOR);
-  assert(source_image_.data != NULL);
+  assert(source_image_.data != nullptr);
   source_image_ = cv::Mat(source_image_,
                           cv::Rect(parameter_handler_.GetSubimageXPos(),
                                    parameter_handler_.GetSubimageYPos(),
@@ -171,7 +171,7 @@ void ImageProcessingEngine::ApplyBlurFilter(const cv::Mat &I, cv::Mat &O)
       break;
 
     case 3: // Bilateral Filter
-      cv::bilateralFilter(I, O, 2 * blur_radius + 1, blur_radius * 2, blur_radius / 2);
+      cv::bilateralFilter(I, O, 2 * blur_radius + 1, blur_radius * 2.0, blur_radius / 2.0);
       break;
 
     default:std::cerr << "wrong blur index" << std::endl;
@@ -358,7 +358,7 @@ void ImageProcessingEngine::DrawContours()
   {
     std::string index = std::to_string(i);
     cv::Moments mu = cv::moments(contours_[i], true);
-    cv::Point center = cv::Point(mu.m10 / mu.m00, mu.m01 / mu.m00);
+    cv::Point center = cv::Point(int(mu.m10 / mu.m00), int(mu.m01 / mu.m00));
 
     // define color based on the distance from the boundary
     cv::Scalar color;
@@ -401,13 +401,13 @@ void ImageProcessingEngine::SaveDetectedObjects(int image, std::vector<Eigen::Ve
   for (int b = 0; b < (int) contours_.size(); ++b)
   {
     mu = cv::moments(contours_[b], true);
-    new_detection(0) = Real(mu.m10 / mu.m00);
-    new_detection(1) = Real(mu.m01 / mu.m00);
+    new_detection(0) = mu.m10 / mu.m00;
+    new_detection(1) = mu.m01 / mu.m00;
 
     new_detection(2) = 0.0;
     new_detection(3) = 0.0;
 
-    new_detection(4) = Real(cv::contourArea(contours_[b]));
+    new_detection(4) = cv::contourArea(contours_[b]);
 
     // fitted_line = (vx, vy, x0, y0)
     cv::fitLine(contours_[b], fitted_line, cv::DIST_L2, 0, 0.01, 0.01);
@@ -473,7 +473,7 @@ bool ImageProcessingEngine::IsContourInRoi(const std::vector<cv::Point> &contour
   return (cv::sum(mask)[0] > 0.0);
   */
   cv::Moments mu = cv::moments(contour, true);
-  cv::Point2f center = cv::Point2f(mu.m10 / mu.m00, mu.m01 / mu.m00);
+  cv::Point2f center = cv::Point2f(int(mu.m10 / mu.m00), int(mu.m01 / mu.m00));
 
   return cv::pointPolygonTest(roi, center, false) >= 0.0;
 }
@@ -482,9 +482,8 @@ void ImageProcessingEngine::AnalyzeConvexityDefectsOnePass(const cv::Mat &I, cv:
 {
   O = I.clone();
 
-  for (int i = 0; i < contours_.size(); ++i)
+  for (const std::vector<cv::Point> &contour : contours_)
   {
-    const std::vector<cv::Point> &contour = contours_[i];
     if (contour.size() > 2) // convex hull may be computed for contours with number of points > 2
     {
       std::vector<int> convex_hull_indices;
@@ -527,9 +526,8 @@ void ImageProcessingEngine::AnalyzeConvexityDefectsOnePass(const cv::Mat &I, cv:
 void ImageProcessingEngine::AnalyzeConvexityDefectsRecursively()
 {
   std::vector<std::vector<cv::Point>> convex_contours;
-  for (int i = 0; i < contours_.size(); ++i)
+  for (std::vector<cv::Point> &contour : contours_)
   {
-    std::vector<cv::Point> &contour = contours_[i];
     cv::Rect bounding_rect = cv::boundingRect(contour);
     std::for_each(contour.begin(),
                   contour.end(),
@@ -537,14 +535,14 @@ void ImageProcessingEngine::AnalyzeConvexityDefectsRecursively()
     int recursion_counter = 0;
     std::vector<std::vector<cv::Point>>
         convex_subcontours = AnalyzeConvexityDefectsRecursively(contour, bounding_rect, recursion_counter);
-    for (int j = 0; j < convex_subcontours.size(); ++j)
+    for (std::vector<cv::Point> &convex_subcontour : convex_subcontours)
     {
-      std::for_each(convex_subcontours[j].begin(),
-                    convex_subcontours[j].end(),
+      std::for_each(convex_subcontour.begin(),
+                    convex_subcontour.end(),
                     [&](cv::Point &p) { p += bounding_rect.tl(); });
-    } // j
+    } // convex_subcontour
     convex_contours.insert(convex_contours.end(), convex_subcontours.begin(), convex_subcontours.end());
-  } // i
+  } // contour
   contours_ = convex_contours;
 }
 
@@ -613,11 +611,11 @@ std::vector<std::vector<cv::Point>> ImageProcessingEngine::AnalyzeConvexityDefec
         std::vector<std::vector<cv::Point>> subcontours;
         FindSubcontours(subcontour_image, subcontours);
         std::vector<std::vector<cv::Point>> combined_subcontours;
-        for (int j = 0; j < subcontours.size(); ++j)
+        for (std::vector<cv::Point> &subcontour : subcontours)
         {
           // recursive call
           std::vector<std::vector<cv::Point>>
-              res_vec = AnalyzeConvexityDefectsRecursively(subcontours[j], bounding_rect, recursion_counter);
+              res_vec = AnalyzeConvexityDefectsRecursively(subcontour, bounding_rect, recursion_counter);
           combined_subcontours.insert(combined_subcontours.end(), res_vec.begin(), res_vec.end());
         }
         return combined_subcontours;

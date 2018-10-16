@@ -44,10 +44,7 @@ ParameterHandlerSynthetic::ParameterHandlerSynthetic()
   percentage_of_misdetections_ = parameters_dictionary_["percentage_of_misdetections"];
 }
 
-ParameterHandlerSynthetic::~ParameterHandlerSynthetic()
-{
-
-}
+ParameterHandlerSynthetic::~ParameterHandlerSynthetic() = default;
 
 const std::string &ParameterHandlerSynthetic::GetTrackingFolder()
 {
@@ -59,7 +56,7 @@ const std::string &ParameterHandlerSynthetic::GetSimulationFolder()
   return simulation_folder_;
 }
 
-const std::string& ParameterHandlerSynthetic::GetFilteringStatisticsFolder()
+const std::string &ParameterHandlerSynthetic::GetFilteringStatisticsFolder()
 {
   return filtering_statistics_folder_;
 }
