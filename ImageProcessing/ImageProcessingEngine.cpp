@@ -266,7 +266,7 @@ void ImageProcessingEngine::FindContours(const cv::Mat &I)
 //                                           < -parameter_handler_.GetCenterOfMassDistance());
                                  }),
                   contours_.end());
-  // possible solution for
+  // suggested possible solution for
   // https://github.com/opencv/opencv/issues/6155
 //  for (int i = 0; i < contours_.size(); ++i)
 //  {
@@ -319,7 +319,7 @@ void ImageProcessingEngine::FindImprovedContours(const cv::Mat &I)
 //                                           < -parameter_handler_.GetCenterOfMassDistance());
                                  }),
                   contours_.end());
-  // possible solution for
+  // suggested possible solution for
   // https://github.com/opencv/opencv/issues/6155
 //  for (int i = 0; i < contours_.size(); ++i)
 //  {
@@ -496,6 +496,20 @@ void ImageProcessingEngine::AnalyzeConvexityDefectsOnePass(const cv::Mat &I, cv:
       {
         std::vector<cv::Vec4i> convexity_defects;
         cv::convexityDefects(contour, convex_hull_indices, convexity_defects);
+        // if the convexity defect occurs to be wrong, remove it
+        // https://github.com/opencv/opencv/issues/6155
+        convexity_defects.erase(std::remove_if(convexity_defects.begin(),
+                                               convexity_defects.end(),
+                                               [&](const cv::Vec4i &cd)
+                                               {
+                                                 const cv::Point2f &start_point = contour[cd[0]];
+                                                 const cv::Point2f &end_point = contour[cd[1]];
+                                                 cv::Point2f middle_point(0.5f * (start_point.x + end_point.x),
+                                                                          0.5f * (start_point.y + end_point.y));
+                                                 return cv::pointPolygonTest(contour, middle_point, true) >= -1.0;
+                                               }),
+                                convexity_defects.end());
+
         for (std::vector<cv::Vec4i>::iterator cd_it = convexity_defects.begin(); cd_it != convexity_defects.end();
              ++cd_it)
         {
@@ -547,6 +561,19 @@ std::vector<std::vector<cv::Point>> ImageProcessingEngine::AnalyzeConvexityDefec
     {
       std::vector<cv::Vec4i> convexity_defects;
       cv::convexityDefects(contour, convex_hull_indices, convexity_defects);
+      // if the convexity defect occurs to be wrong, remove it
+      // https://github.com/opencv/opencv/issues/6155
+      convexity_defects.erase(std::remove_if(convexity_defects.begin(),
+                                             convexity_defects.end(),
+                                             [&](const cv::Vec4i &cd)
+                                             {
+                                               const cv::Point2f &start_point = contour[cd[0]];
+                                               const cv::Point2f &end_point = contour[cd[1]];
+                                               cv::Point2f middle_point(0.5f * (start_point.x + end_point.x),
+                                                                        0.5f * (start_point.y + end_point.y));
+                                               return cv::pointPolygonTest(contour, middle_point, true) >= -1.0;
+                                             }),
+                              convexity_defects.end());
       std::vector<cv::Vec4i>::iterator max_iter = std::max_element(convexity_defects.begin(),
                                                                    convexity_defects.end(),
                                                                    [](const cv::Vec4i &a, const cv::Vec4i &b)
@@ -652,18 +679,6 @@ bool ImageProcessingEngine::CorrectConvexityDefect(const std::vector<cv::Vec4i>:
   double inward_cutting_vec_norm =
       std::sqrt(inward_cutting_vec.x * inward_cutting_vec.x + inward_cutting_vec.y * inward_cutting_vec.y);
   inward_cutting_vec /= inward_cutting_vec_norm;
-
-  // if the convexity defect occurs to be wrong, skip it
-  // https://github.com/opencv/opencv/issues/6155
-  if (cv::pointPolygonTest(contour,
-                           middle_point + inward_cutting_vec * (inward_cutting_vec_norm - 1.0),
-                           false) > 0.0
-      && cv::pointPolygonTest(contour,
-                              middle_point + inward_cutting_vec * (inward_cutting_vec_norm + 1.0),
-                              false) < 0.0)
-  {
-    return false;
-  }
 
   double intersection_length = 0.0;
   do

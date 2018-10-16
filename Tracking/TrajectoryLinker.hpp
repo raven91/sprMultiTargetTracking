@@ -42,18 +42,18 @@ class TrajectoryLinker
   std::map<int, cv::Scalar> targets_colors_;
   cv::RNG rng_; // random color generator
 
-  void PerformDataAssociationForTrackLinking(std::map<int, std::vector<Eigen::VectorXd>> &trajectories,
-                                             std::map<int, std::vector<int>> &timestamps,
-                                             int n_max_dim,
-                                             std::vector<int> &target_indexes,
-                                             std::vector<int> &assignments,
-                                             std::vector<CostInt> &costs);
+  void PerformDataAssociation(std::map<int, std::vector<Eigen::VectorXd>> &trajectories,
+                              std::map<int, std::vector<int>> &timestamps,
+                              int n_max_dim,
+                              std::vector<int> &target_indexes,
+                              std::vector<int> &assignments,
+                              std::vector<CostInt> &costs);
   CostInt InitializeCostMatrixForTrackLinking(std::map<int, std::vector<Eigen::VectorXd>> &trajectories,
                                               std::map<int, std::vector<int>> &timestamps,
                                               std::vector<std::vector<CostInt>> &cost_matrix,
                                               std::vector<int> &target_indexes);
-  bool IsLinkingNearBoundary(const Eigen::VectorXd &outer_trajectory_point,
-                             const Eigen::VectorXd &inner_trajectory_point);
+  bool IsLinkingNearBoundary(const Eigen::VectorXd &last_point_of_outer_trajectory,
+                             const Eigen::VectorXd &first_point_of_inner_trajectory);
   Real ComputeCostMatrixEntryWithoutIntersection(const std::map<int, std::vector<Eigen::VectorXd>>::iterator
                                                  &outer_trj_it,
                                                  const std::map<int, std::vector<Eigen::VectorXd>>::iterator

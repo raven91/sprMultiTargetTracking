@@ -104,12 +104,12 @@ void TrajectoryLinker::PerformTrackLinking(std::map<int, std::vector<Eigen::Vect
   std::vector<int> assignments(n_max_dim, -1);
   std::vector<CostInt> costs(n_max_dim);
 
-  PerformDataAssociationForTrackLinking(trajectories,
-                                        timestamps,
-                                        n_max_dim,
-                                        target_indexes,
-                                        assignments,
-                                        costs);
+  PerformDataAssociation(trajectories,
+                         timestamps,
+                         n_max_dim,
+                         target_indexes,
+                         assignments,
+                         costs);
   UnassignUnrealisticAssociations(assignments, costs);
   ConnectBrokenTrajectories(trajectories, timestamps, target_indexes, assignments, costs);
   ImposeSuccessiveLabeling(trajectories, timestamps);
@@ -120,13 +120,13 @@ void TrajectoryLinker::PerformTrackLinking(std::map<int, std::vector<Eigen::Vect
   SaveImagesWithVectors(trajectories, timestamps);
 }
 
-void TrajectoryLinker::PerformDataAssociationForTrackLinking(std::map<int,
-                                                                      std::vector<Eigen::VectorXd>> &trajectories,
-                                                             std::map<int, std::vector<int>> &timestamps,
-                                                             int n_max_dim,
-                                                             std::vector<int> &target_indexes,
-                                                             std::vector<int> &assignments,
-                                                             std::vector<CostInt> &costs)
+void TrajectoryLinker::PerformDataAssociation(std::map<int,
+                                                       std::vector<Eigen::VectorXd>> &trajectories,
+                                              std::map<int, std::vector<int>> &timestamps,
+                                              int n_max_dim,
+                                              std::vector<int> &target_indexes,
+                                              std::vector<int> &assignments,
+                                              std::vector<CostInt> &costs)
 {
   std::cout << "track linking | data association" << std::endl;
   std::vector<std::vector<CostInt>> cost_matrix(n_max_dim, std::vector<CostInt>(n_max_dim, -1));
@@ -178,9 +178,10 @@ CostInt TrajectoryLinker::InitializeCostMatrixForTrackLinking(std::map<int, std:
       int inner_trj_begin_time = timestamps[inner_trj_idx][0];
 //      int inner_trj_end_time = timestamps[inner_trj_idx][timestamps[inner_trj_idx].size() - 1];
 
+      // a trajectory should not map to itself
       if (inner_trj_it->first == outer_trj_it->first)
       {
-        continue; // TODO: is it required?
+        continue;
       }
 
       // trajectories do not intersect: outer, inner (in time)
@@ -278,24 +279,24 @@ CostInt TrajectoryLinker::InitializeCostMatrixForTrackLinking(std::map<int, std:
   return CostInt(max_cost * costs_order_of_magnitude_);
 }
 
-bool TrajectoryLinker::IsLinkingNearBoundary(const Eigen::VectorXd &outer_trajectory_point,
-                                             const Eigen::VectorXd &inner_trajectory_point)
+bool TrajectoryLinker::IsLinkingNearBoundary(const Eigen::VectorXd &last_point_of_outer_trajectory,
+                                             const Eigen::VectorXd &first_point_of_inner_trajectory)
 {
   Real x_left = parameter_handler_.GetTrackLinkingRoiMargin();
   Real x_right = parameter_handler_.GetSubimageXSize() - parameter_handler_.GetTrackLinkingRoiMargin();
   Real y_top = parameter_handler_.GetTrackLinkingRoiMargin();
   Real y_bottom = parameter_handler_.GetSubimageYSize() - parameter_handler_.GetTrackLinkingRoiMargin();
 
-  if ((outer_trajectory_point(0) < x_left) && (inner_trajectory_point(0) < x_left))
+  if ((last_point_of_outer_trajectory(0) < x_left) && (first_point_of_inner_trajectory(0) < x_left))
   {
     return true;
-  } else if ((outer_trajectory_point(1) < y_top) && (inner_trajectory_point(1) < y_top))
+  } else if ((last_point_of_outer_trajectory(1) < y_top) && (first_point_of_inner_trajectory(1) < y_top))
   {
     return true;
-  } else if ((outer_trajectory_point(0) > x_right) && (inner_trajectory_point(0) > x_right))
+  } else if ((last_point_of_outer_trajectory(0) > x_right) && (first_point_of_inner_trajectory(0) > x_right))
   {
     return true;
-  } else if ((outer_trajectory_point(1) > y_bottom) && (inner_trajectory_point(1) > y_bottom))
+  } else if ((last_point_of_outer_trajectory(1) > y_bottom) && (first_point_of_inner_trajectory(1) > y_bottom))
   {
     return true;
   } else
@@ -471,13 +472,11 @@ void TrajectoryLinker::ConnectBrokenTrajectories(std::map<int, std::vector<Eigen
       timestamps[target_idx] = unified_timestamp;
       // relabel target indexes because the mapped index can occur later
       std::replace(target_indexes.begin(), target_indexes.end(), assignment_idx, target_idx);
-//      std::cout << target_idx << "<->" << assignment_idx << " : " << assignment_begin_time << " : " << costs[i]
-//                << std::endl;
       ++number_of_unifications;
     }
   } // i
 
-  std::cout << "track linking | trajectories unified: " << number_of_unifications << std::endl;
+  std::cout << "trajectory linking | trajectories unified: " << number_of_unifications << std::endl;
 }
 
 /**
