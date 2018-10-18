@@ -3,21 +3,13 @@
 int main(int argc, const char *argv[])
 {
   MultitargetTracker multitarget_tracker;
-  std::string experimental_configuration("/Volumes/Kruk/Swarming/20170705/100x_01-BF0_1to1600_yepd_1ms_6.2nm_noautofocus_v_2/ConfigExperimental.cfg");
-//  multitarget_tracker.PerformImageProcessingForOneExperiment(experimental_configuration);
-//  multitarget_tracker.StartFilteringWithoutImageProcessingForOneExperiment(experimental_configuration);
-  multitarget_tracker.StartTrackLinkingViaTemporalAssignment(experimental_configuration);
+//  std::string configuration_file_name("/Users/nikita/CLionProjects/sprMultiTargetTracking/Parameters/ConfigExperimental.cfg");
+//  multitarget_tracker.PerformTrackingForOneExperiment(configuration_file_name);
+//  multitarget_tracker.PerformOnlyTrackLinkingForOneExperiment(configuration_file_name);
+  multitarget_tracker.PerformActionForMultipleExperiments(0, std::string("/Volumes/Kruk/Swarming/"));
 
-  // FOR IMAGE PROCESSING
-//  multitarget_tracker.StartImageProcessingOrFilteringForMultipleExperiments('1');
-  // FOR TRACKING & KALMAN FILTERING
-  //multitarget_tracker.StartImageProcessingOrFilteringForMultipleExperiments('2');
-
-  // FOR TRACK LINKING
-//  multitarget_tracker.StartImageProcessingOrFilteringForMultipleExperiments('3');
-
-  //  multitarget_tracker.StartOnSyntheticData(phi, a, U0, kappa, percentage_of_misdetections);
-  //  multitarget_tracker.StartOnSyntheticDataForDifferentParameters();
+//  multitarget_tracker.StartOnSyntheticData(phi, a, U0, kappa, percentage_of_misdetections);
+//  multitarget_tracker.StartOnSyntheticDataForDifferentParameters();
 
   return 0;
 }

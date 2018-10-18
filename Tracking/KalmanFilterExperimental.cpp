@@ -205,6 +205,9 @@ void KalmanFilterExperimental::PerformEstimation(int image_idx,
 
   SaveTargets(kalman_filter_output_file_, image_idx, targets);
   SaveTargetsMatlab(kalman_filter_matlab_output_file_, image_idx, targets);
+#if defined(PARTIAL_IMAGE_OUTPUT)
+  if (image_idx < 10)
+#endif
   SaveImagesWithVectors(image_idx, targets);
 
   std::cout << "number of overall targets taken part: " << max_target_index_ + 1 << "; number of current targets: "

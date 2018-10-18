@@ -12,6 +12,9 @@
 #include "TrajectoryLinker.hpp"
 
 #include <chrono>
+#include <regex>
+
+#include <boost/filesystem.hpp>
 
 MultitargetTracker::MultitargetTracker() :
     targets_(),
@@ -27,10 +30,13 @@ MultitargetTracker::~MultitargetTracker()
   std::cout << "multi-target tracking ended" << std::endl;
 }
 
-void MultitargetTracker::StartOnExperimentalData()
+/**
+ * Tracking includes Image processing, Filtering, and Track linking
+ * @param configuration_file_name
+ */
+void MultitargetTracker::PerformTrackingForOneExperiment(const std::string &configuration_file_name)
 {
-  ParameterHandlerExperimental parameter_handler
-      (std::string("/Users/nikita/CLionProjects/sprMultiTargetTracking/Parameters/ConfigExperimental.cfg"));
+  ParameterHandlerExperimental parameter_handler(configuration_file_name);
   ImageProcessingEngine image_processing_engine(parameter_handler);
   image_processing_engine.CreateImageProcessingOutputFile();
   KalmanFilterExperimental kalman_filter(parameter_handler, image_processing_engine);
@@ -53,7 +59,7 @@ void MultitargetTracker::StartOnExperimentalData()
   trajectory_linker.PerformTrackLinking(trajectories_, timestamps_);
 }
 
-void MultitargetTracker::PerformImageProcessingForOneExperiment(const std::string &configuration_file_name)
+void MultitargetTracker::PerformOnlyImageProcessingForOneExperiment(const std::string &configuration_file_name)
 {
   ParameterHandlerExperimental parameter_handler(configuration_file_name);
   ImageProcessingEngine image_processing_engine(parameter_handler);
@@ -65,7 +71,7 @@ void MultitargetTracker::PerformImageProcessingForOneExperiment(const std::strin
   }
 }
 
-void MultitargetTracker::StartFilteringWithoutImageProcessingForOneExperiment(const std::string &configuration_file_name)
+void MultitargetTracker::PerformOnlyFilteringForOneExperiment(const std::string &configuration_file_name)
 {
   ParameterHandlerExperimental parameter_handler(configuration_file_name);
   std::ostringstream image_processing_data_input_file_name;
@@ -87,7 +93,7 @@ void MultitargetTracker::StartFilteringWithoutImageProcessingForOneExperiment(co
   }
 }
 
-void MultitargetTracker::StartTrackLinking(const std::string &configuration_file_name)
+void MultitargetTracker::PerformOnlyTrackLinkingForOneExperiment(const std::string &configuration_file_name)
 {
   ParameterHandlerExperimental parameter_handler(configuration_file_name);
   ImageProcessingEngine image_processing_engine(parameter_handler);
@@ -97,57 +103,33 @@ void MultitargetTracker::StartTrackLinking(const std::string &configuration_file
   trajectory_linker.PerformTrackLinking(trajectories_, timestamps_);
 }
 
-void MultitargetTracker::StartImageProcessingOrFilteringForMultipleExperiments(const char &dependence)
+void MultitargetTracker::PerformActionForMultipleExperiments(int action, const std::string &experiments_directory)
 {
-  boost::filesystem::path current_dir("//tsclient/D/Documents/Internship/02.08-_MultiTargetTracking/");
-  boost::filesystem::path origin_dir = current_dir;
-  boost::regex pattern("20.*");
-  for (boost::filesystem::directory_iterator iter(current_dir), end; iter != end; ++iter)
+  boost::filesystem::path experiments_path(experiments_directory);
+  if (boost::filesystem::exists(experiments_path))
   {
-    boost::smatch match;
-    std::string fn = iter->path().filename().string();
-    if (boost::regex_match(fn, match, pattern))
+    for (boost::filesystem::directory_entry &date : boost::filesystem::directory_iterator(experiments_path))
     {
-      std::cout << match[0] << "\n";
-      current_dir += (fn + "/");
-      boost::regex pattern("100.*");
-      for (boost::filesystem::directory_iterator iter(current_dir), end; iter != end; ++iter)
+      // consider only folders of a specific date-of-experiment type
+      if (boost::filesystem::is_directory(date.path())
+          && std::regex_match(date.path().filename().string(), std::regex("[[:d:]]+")))
       {
-        boost::smatch match;
-        std::string fn = iter->path().filename().string();
-        if (boost::regex_match(fn, match, pattern))
+        for (boost::filesystem::directory_entry &experiment : boost::filesystem::directory_iterator(date.path()))
         {
-          boost::filesystem::path current_dir_copy = current_dir;
-          current_dir += (fn + "/");
-          boost::regex pattern("Config.*");
-          for (boost::filesystem::directory_iterator iter(current_dir), end; iter != end; ++iter)
+          // ignore various hidden files
+          if (boost::filesystem::is_directory(experiment.path()))
           {
-            boost::smatch match;
-            std::string fn = iter->path().filename().string();
-            if ((boost::regex_match(fn, match, pattern)))
-            {
-              current_dir += fn;
-
-              switch (dependence)
-              {
-                case '1':PerformImageProcessingForOneExperiment(current_dir.string());
-                  break;
-                case '2':StartFilteringWithoutImageProcessingForOneExperiment(current_dir.string());
-                  break;
-                case '3':StartTrackLinking(current_dir.string());
-                  break;
-                default:
-                  ;
-              }
-            }
-          } // iter
-          current_dir = current_dir_copy;
+            std::cout << experiment.path().string() << std::endl;
+            std::string configuration_file_name(experiment.path().string() + std::string("/ConfigExperimental.cfg"));
+            PerformTrackingForOneExperiment(configuration_file_name);
+          }
         }
-      } // iter
-      current_dir = origin_dir;
+      }
     }
-  } // iter
-  // TODO: iter three times?
+  } else
+  {
+    std::cout << "error: directory does not exist" << std::endl;
+  }
 }
 
 void MultitargetTracker::StartOnSyntheticData(Real phi, Real a, Real U0, Real kappa, Real percentage_of_misdetections)

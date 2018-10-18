@@ -22,11 +22,11 @@ class MultitargetTracker
   MultitargetTracker();
   ~MultitargetTracker();
 
-  void StartOnExperimentalData();
-  void PerformImageProcessingForOneExperiment(const std::string &file_name);
-  void StartFilteringWithoutImageProcessingForOneExperiment(const std::string &file_name);
-  void StartTrackLinking(const std::string &configuration_file_name);
-  void StartImageProcessingOrFilteringForMultipleExperiments(const char &dependence);
+  void PerformTrackingForOneExperiment(const std::string &configuration_file_name);
+  void PerformOnlyImageProcessingForOneExperiment(const std::string &file_name);
+  void PerformOnlyFilteringForOneExperiment(const std::string &file_name);
+  void PerformOnlyTrackLinkingForOneExperiment(const std::string &configuration_file_name);
+  void PerformActionForMultipleExperiments(int action, const std::string &experiments_directory);
 
   void StartOnSyntheticData(Real phi, Real a, Real U0, Real kappa, Real percentage_of_misdetections);
   void StartOnSyntheticDataForDifferentParameters();

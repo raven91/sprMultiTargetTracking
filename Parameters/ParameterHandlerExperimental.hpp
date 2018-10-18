@@ -56,6 +56,7 @@ class ParameterHandlerExperimental
   int GetNlMeansDenoisingSearchWindowSize();
   Real GetContrast();
   int GetBrightness();
+  int GetBackgroundSubtractionCoefficient();
   int GetTrackLinkingRoiMargin();
   int GetTrackLinkingIntersectionTime();
   int GetTrackLinkingLagTime();
@@ -106,6 +107,7 @@ class ParameterHandlerExperimental
   int nl_means_denoising_search_window_size_;
   Real contrast_;
   int brightness_;
+  int background_subtraction_coefficient_;
   int track_linking_roi_margin_;
   int track_linking_intersection_time_;
   int track_linking_lag_time_;

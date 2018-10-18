@@ -11,6 +11,8 @@
 #include <cassert>
 #include <cmath>
 
+#define PARTIAL_IMAGE_OUTPUT
+
 typedef double Real;
 typedef long CostInt;
 

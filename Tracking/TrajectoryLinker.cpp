@@ -676,37 +676,43 @@ void TrajectoryLinker::SaveImagesWithVectors(const std::map<int, std::vector<Eig
 
   for (int image_idx = parameter_handler_.GetFirstImage(); image_idx <= parameter_handler_.GetLastImage(); ++image_idx)
   {
-    cv::Mat image;
-    image = image_processing_engine_.GetSourceImage(image_idx);
-
-    for (const std::pair<const int, std::vector<int>> &timestamp : timestamps)
+#if defined(PARTIAL_IMAGE_OUTPUT)
+    if (image_idx < 10)
+#endif
     {
-      std::vector<int>::const_iterator trj_it = std::find(timestamp.second.begin(), timestamp.second.end(), image_idx);
-      if (trj_it != timestamp.second.end())
+      cv::Mat image;
+      image = image_processing_engine_.GetSourceImage(image_idx);
+
+      for (const std::pair<const int, std::vector<int>> &timestamp : timestamps)
       {
-        long trj_idx = std::distance(timestamp.second.begin(), trj_it);
-        Eigen::VectorXd target = trajectories.at(timestamp.first)[trj_idx];
+        std::vector<int>::const_iterator
+            trj_it = std::find(timestamp.second.begin(), timestamp.second.end(), image_idx);
+        if (trj_it != timestamp.second.end())
+        {
+          long trj_idx = std::distance(timestamp.second.begin(), trj_it);
+          Eigen::VectorXd target = trajectories.at(timestamp.first)[trj_idx];
 
-        cv::Point2f center = cv::Point2f(target(0), target(1));
-        cv::putText(image, std::to_string(timestamp.first), center, cv::FONT_HERSHEY_DUPLEX, 0.4, text_color);
-        Real length = std::max(target(6), target(7));
-        cv::line(image,
-                 center,
-                 center + cv::Point2f(target(2), target(3)),
-                 velocity_color);
-        cv::line(image,
-                 center,
-                 center + cv::Point2f(std::cosf(target(5)), std::sinf(target(5))) * length / 2.0,
-                 orientation_color);
-      }
-    } // timestamp
+          cv::Point2f center = cv::Point2f(target(0), target(1));
+          cv::putText(image, std::to_string(timestamp.first), center, cv::FONT_HERSHEY_DUPLEX, 0.4, text_color);
+          Real length = std::max(target(6), target(7));
+          cv::line(image,
+                   center,
+                   center + cv::Point2f(target(2), target(3)),
+                   velocity_color);
+          cv::line(image,
+                   center,
+                   center + cv::Point2f(std::cosf(target(5)), std::sinf(target(5))) * length / 2.0,
+                   orientation_color);
+        }
+      } // timestamp
 
-    std::ostringstream output_image_name_buf;
-    output_image_name_buf << parameter_handler_.GetInputFolder() << parameter_handler_.GetTrackLinkingSubfolder()
-                          << parameter_handler_.GetFileName0() << std::setfill('0') << std::setw(9) << image_idx
-                          << parameter_handler_.GetFileName1();
-    std::string output_image_name = output_image_name_buf.str();
-    cv::imwrite(output_image_name, image);
+      std::ostringstream output_image_name_buf;
+      output_image_name_buf << parameter_handler_.GetInputFolder() << parameter_handler_.GetTrackLinkingSubfolder()
+                            << parameter_handler_.GetFileName0() << std::setfill('0') << std::setw(9) << image_idx
+                            << parameter_handler_.GetFileName1();
+      std::string output_image_name = output_image_name_buf.str();
+      cv::imwrite(output_image_name, image);
+    }
   } // image_idx
 }
 

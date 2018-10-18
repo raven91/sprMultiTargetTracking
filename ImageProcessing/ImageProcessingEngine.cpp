@@ -71,6 +71,9 @@ void ImageProcessingEngine::RetrieveBacterialData(int image, std::vector<Eigen::
   AnalyzeConvexityDefectsRecursively();
 
   DrawContours();
+#if defined(PARTIAL_IMAGE_OUTPUT)
+  if (image < 10)
+#endif
   SaveImage(contour_image_, image);
   SaveDetectedObjects(image, detections);
 }
@@ -132,7 +135,7 @@ void ImageProcessingEngine::SubtractBackgroundNoise(const cv::Mat &I, cv::Mat &O
                    cv::Size(2 * parameter_handler_.GetBlurRadius() + 1, 2 * parameter_handler_.GetBlurRadius() + 1),
                    parameter_handler_.GetBlurSigma(),
                    parameter_handler_.GetBlurSigma());
-  O = I - blurred_background_image_;
+  O = I + parameter_handler_.GetBackgroundSubtractionCoefficient() * blurred_background_image_;
 }
 
 void ImageProcessingEngine::CorrectForIllumination(const cv::Mat &I, cv::Mat &O)
@@ -686,7 +689,7 @@ bool ImageProcessingEngine::CorrectConvexityDefect(const std::vector<cv::Vec4i>:
                                 middle_point
                                     + inward_cutting_vec * (inward_cutting_vec_norm + intersection_length),
                                 false) >= 0.0);
-  if (intersection_length <= 15.0) // if the cut is transverse to bacteria
+  if (intersection_length <= 25.0) // if the cut is transverse to bacteria
   {
     cv::line(image,
              farthest_point,

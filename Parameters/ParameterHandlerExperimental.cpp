@@ -67,6 +67,7 @@ ParameterHandlerExperimental::ParameterHandlerExperimental(const std::string &fi
   nl_means_denoising_search_window_size_ = (int) parameters_dictionary["nl_means_denoising_search_window_size"];
   contrast_ = parameters_dictionary["contrast"];
   brightness_ = (int) parameters_dictionary["brightness"];
+  background_subtraction_coefficient_ = (int) parameters_dictionary["background_subtraction_coefficient"];
   track_linking_roi_margin_ = (int) parameters_dictionary["track_linking_roi_margin"];
   track_linking_intersection_time_ = (int) parameters_dictionary["track_linking_intersection_time"];
   track_linking_lag_time_ = (int) parameters_dictionary["track_linking_lag_time"];
@@ -279,6 +280,11 @@ Real ParameterHandlerExperimental::GetContrast()
 int ParameterHandlerExperimental::GetBrightness()
 {
   return brightness_;
+}
+
+int ParameterHandlerExperimental::GetBackgroundSubtractionCoefficient()
+{
+  return background_subtraction_coefficient_;
 }
 
 int ParameterHandlerExperimental::GetTrackLinkingRoiMargin()
