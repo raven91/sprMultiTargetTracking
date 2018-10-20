@@ -58,6 +58,9 @@ void TrajectoryLinker::CloseTrackLinkingOutputFiles()
 void TrajectoryLinker::InitializeTrajectories(std::map<int, std::vector<Eigen::VectorXd>> &trajectories,
                                               std::map<int, std::vector<int>> &timestamps)
 {
+  trajectories.clear();
+  timestamps.clear();
+
   std::string kalman_filter_output_file_name =
       parameter_handler_.GetInputFolder() + parameter_handler_.GetDataAnalysisSubfolder()
           + parameter_handler_.GetKalmanFilterOutputFileName();

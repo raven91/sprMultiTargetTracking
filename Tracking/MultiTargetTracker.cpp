@@ -121,11 +121,17 @@ void MultitargetTracker::PerformActionForMultipleExperiments(int action, const s
           {
             std::cout << experiment.path().string() << std::endl;
             std::string configuration_file_name(experiment.path().string() + std::string("/ConfigExperimental.cfg"));
-            PerformTrackingForOneExperiment(configuration_file_name);
+            if (boost::filesystem::exists(boost::filesystem::path(configuration_file_name)))
+            {
+              PerformTrackingForOneExperiment(configuration_file_name);
+            } else
+            {
+              std::cout << "error: missing configuration file" << std::endl;
+            }
           }
-        }
+        } // experiment
       }
-    }
+    } // date
   } else
   {
     std::cout << "error: directory does not exist" << std::endl;
