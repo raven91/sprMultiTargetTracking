@@ -46,7 +46,8 @@ class ParameterHandlerExperimental
   int GetMinContourArea();
   Real GetAreaIncrease();
   Real GetConvexityDefectMagnitude();
-  Real GetDataAssociationCost();
+  Real GetLowerDataAssociationCost();
+  Real GetUpperDataAssociationCost();
   Real GetSecondaryDataAssociationCost();
   Real GetHeightToWidthRatio();
   Real GetCenterOfMassDistance();
@@ -97,7 +98,8 @@ class ParameterHandlerExperimental
   int min_contour_area_;
   Real area_increase_;
   Real convexity_defect_magnitude_;
-  Real data_association_cost_;
+  Real lower_data_association_cost_;
+  Real upper_data_association_cost_;
   Real secondary_data_association_cost_;
   Real height_to_width_ratio_;
   Real center_of_mass_distance_;

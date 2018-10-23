@@ -57,7 +57,8 @@ ParameterHandlerExperimental::ParameterHandlerExperimental(const std::string &fi
   min_contour_area_ = (int) parameters_dictionary["min_contour_area"];
   area_increase_ = parameters_dictionary["area_increase"];
   convexity_defect_magnitude_ = parameters_dictionary["convexity_defect_magnitude"];
-  data_association_cost_ = parameters_dictionary["data_association_cost"];
+  lower_data_association_cost_ = parameters_dictionary["lower_data_association_cost"];
+  upper_data_association_cost_ = parameters_dictionary["upper_data_association_cost"];
   secondary_data_association_cost_ = parameters_dictionary["secondary_data_association_cost"];
   height_to_width_ratio_ = parameters_dictionary["height_to_width_ratio"];
   center_of_mass_distance_ = parameters_dictionary["center_of_mass_distance"];
@@ -232,9 +233,14 @@ Real ParameterHandlerExperimental::GetConvexityDefectMagnitude()
   return convexity_defect_magnitude_;
 }
 
-Real ParameterHandlerExperimental::GetDataAssociationCost()
+Real ParameterHandlerExperimental::GetLowerDataAssociationCost()
 {
-  return data_association_cost_;
+  return lower_data_association_cost_;
+}
+
+Real ParameterHandlerExperimental::GetUpperDataAssociationCost()
+{
+  return upper_data_association_cost_;
 }
 
 Real ParameterHandlerExperimental::GetSecondaryDataAssociationCost()

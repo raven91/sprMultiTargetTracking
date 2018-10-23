@@ -83,7 +83,8 @@ class KalmanFilterExperimental
   void RemoveRecapturedTargetsFromUnmatched(std::map<int, Eigen::VectorXd> &targets,
                                             const std::vector<int> &assignments,
                                             const std::vector<int> &target_indexes);
-  void AddNewTargets(std::map<int, Eigen::VectorXd> &targets,
+  void AddNewTargets(int image_idx,
+                     std::map<int, Eigen::VectorXd> &targets,
                      const std::vector<Eigen::VectorXd> &detections,
                      const std::vector<int> &assignments);
   void DeleteLongLostTargets(std::map<int, Eigen::VectorXd> &targets);
@@ -93,7 +94,12 @@ class KalmanFilterExperimental
   void SaveTargetsMatlab(std::ofstream &file, int image_idx, const std::map<int, Eigen::VectorXd> &targets);
   void SaveImagesWithVectors(int image_idx, const std::map<int, Eigen::VectorXd> &targets);
   void SaveImagesWithRectangles(int image_idx, const std::map<int, Eigen::VectorXd> &targets);
+  void SaveImagesOfUnassignedDetections(int image_idx,
+                                        const std::vector<Eigen::VectorXd> &detections,
+                                        const std::vector<int> &indexes_to_unassigned_detections);
   cv::Point2f RotatePoint(const cv::Point2f &p, float rad);
+  Real NematicAngularDistance(Real angle_1, Real angle_2);
+  Real MaxAllowedDataAssociationCost(const Eigen::Vector2d &distance, const Eigen::Vector2d &orientation);
 
 };
 
